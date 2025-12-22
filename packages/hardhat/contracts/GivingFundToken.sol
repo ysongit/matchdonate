@@ -29,7 +29,7 @@ contract GivingFundToken {
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
     event Minted(address indexed user, uint256 amount);
-    event Burned(address indexed from, address indexed recipient, uint256 amount);
+    event Burned(address indexed recipient, uint256 amount);
     event Paused(address indexed by);
     event Unpaused(address indexed by);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
@@ -77,18 +77,16 @@ contract GivingFundToken {
 
     /**
      * @dev Owner burns GF tokens and sends USDC to recipient
-     * @param from Address to burn tokens from
      * @param recipient Address to send USDC to
      * @param amount Amount of tokens to burn and USDC to send
      */
-    function burnAndSendUSDC(address from, address recipient, uint256 amount) external onlyOwner {
-        require(from != address(0), "Cannot burn from zero address");
+    function burnAndSendUSDC(address recipient, uint256 amount) external onlyOwner {
         require(recipient != address(0), "Cannot send to zero address");
-        require(balanceOf[from] >= amount, "Insufficient balance");
+        require(balanceOf[recipient] >= amount, "Insufficient balance");
         require(amount > 0, "Amount must be greater than 0");
 
         // Burn GF tokens
-        balanceOf[from] -= amount;
+        balanceOf[recipient] -= amount;
         totalSupply -= amount;
 
         // Send USDC to recipient
@@ -97,8 +95,8 @@ contract GivingFundToken {
             "USDC transfer failed"
         );
 
-        emit Burned(from, recipient, amount);
-        emit Transfer(from, address(0), amount);
+        emit Burned(recipient, amount);
+        emit Transfer(recipient, address(0), amount);
     }
 
     /**
