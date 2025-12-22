@@ -1,0 +1,196 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+interface IERC20 {
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+}
+
+/**
+ * @title GivingFundToken
+ * @dev ERC20 token backed 1:1 by USDC for charitable giving
+ * Users can mint GF tokens by depositing USDC
+ * Only owner can burn tokens and send USDC to recipients
+ */
+contract GivingFundToken {
+    string public name = "Giving Fund Token";
+    string public symbol = "GFT";
+    uint8 public decimals = 6; // Match USDC decimals
+    uint256 public totalSupply;
+
+    address public owner;
+    address public immutable usdcToken;
+    bool public paused;
+
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event Minted(address indexed user, uint256 amount);
+    event Burned(address indexed from, address indexed recipient, uint256 amount);
+    event Paused(address indexed by);
+    event Unpaused(address indexed by);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this");
+        _;
+    }
+
+    modifier whenNotPaused() {
+        require(!paused, "Contract is paused");
+        _;
+    }
+
+    /**
+     * @dev Constructor sets the USDC token address and owner
+     * @param _usdcToken Address of the USDC token contract
+     */
+    constructor(address _usdcToken) {
+        require(_usdcToken != address(0), "Invalid USDC address");
+        owner = msg.sender;
+        usdcToken = _usdcToken;
+    }
+
+    /**
+     * @dev Exchange USDC for Giving Fund Tokens at 1:1 ratio
+     * @param amount Amount of USDC to deposit (in USDC's smallest unit)
+     */
+    function mint(uint256 amount) external whenNotPaused {
+        require(amount > 0, "Amount must be greater than 0");
+
+        // Transfer USDC from user to owner
+        require(
+            IERC20(usdcToken).transferFrom(msg.sender, owner, amount),
+            "USDC transfer failed"
+        );
+
+        // Mint GF tokens to user
+        totalSupply += amount;
+        balanceOf[msg.sender] += amount;
+
+        emit Minted(msg.sender, amount);
+        emit Transfer(address(0), msg.sender, amount);
+    }
+
+    /**
+     * @dev Owner burns GF tokens and sends USDC to recipient
+     * @param from Address to burn tokens from
+     * @param recipient Address to send USDC to
+     * @param amount Amount of tokens to burn and USDC to send
+     */
+    function burnAndSendUSDC(address from, address recipient, uint256 amount) external onlyOwner {
+        require(from != address(0), "Cannot burn from zero address");
+        require(recipient != address(0), "Cannot send to zero address");
+        require(balanceOf[from] >= amount, "Insufficient balance");
+        require(amount > 0, "Amount must be greater than 0");
+
+        // Burn GF tokens
+        balanceOf[from] -= amount;
+        totalSupply -= amount;
+
+        // Send USDC to recipient
+        require(
+            IERC20(usdcToken).transferFrom(owner, recipient, amount),
+            "USDC transfer failed"
+        );
+
+        emit Burned(from, recipient, amount);
+        emit Transfer(from, address(0), amount);
+    }
+
+    /**
+     * @dev Transfer tokens to another address
+     * @param to Recipient address
+     * @param amount Amount to transfer
+     */
+    function transfer(address to, uint256 amount) public whenNotPaused returns (bool) {
+        require(to != address(0), "Transfer to zero address");
+        require(balanceOf[msg.sender] >= amount, "Insufficient balance");
+
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+
+        emit Transfer(msg.sender, to, amount);
+        return true;
+    }
+
+    /**
+     * @dev Approve spender to spend tokens on behalf of owner
+     * @param spender Address authorized to spend
+     * @param amount Amount authorized to spend
+     */
+    function approve(address spender, uint256 amount) public whenNotPaused returns (bool) {
+        require(spender != address(0), "Approve to zero address");
+
+        allowance[msg.sender][spender] = amount;
+        emit Approval(msg.sender, spender, amount);
+        return true;
+    }
+
+    /**
+     * @dev Transfer tokens from one address to another using allowance
+     * @param from Address to transfer from
+     * @param to Address to transfer to
+     * @param amount Amount to transfer
+     */
+    function transferFrom(address from, address to, uint256 amount) public whenNotPaused returns (bool) {
+        require(from != address(0), "Transfer from zero address");
+        require(to != address(0), "Transfer to zero address");
+        require(balanceOf[from] >= amount, "Insufficient balance");
+        require(allowance[from][msg.sender] >= amount, "Insufficient allowance");
+
+        balanceOf[from] -= amount;
+        balanceOf[to] += amount;
+        allowance[from][msg.sender] -= amount;
+
+        emit Transfer(from, to, amount);
+        return true;
+    }
+
+    /**
+     * @dev Pause the contract - only owner can call
+     */
+    function pause() external onlyOwner {
+        require(!paused, "Already paused");
+        paused = true;
+        emit Paused(msg.sender);
+    }
+
+    /**
+     * @dev Unpause the contract - only owner can call
+     */
+    function unpause() external onlyOwner {
+        require(paused, "Not paused");
+        paused = false;
+        emit Unpaused(msg.sender);
+    }
+
+    /**
+     * @dev Transfer ownership to a new address
+     * @param newOwner Address of new owner
+     */
+    function transferOwnership(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "New owner is zero address");
+        address oldOwner = owner;
+        owner = newOwner;
+        emit OwnershipTransferred(oldOwner, newOwner);
+    }
+
+    /**
+     * @dev Get balance in human-readable format (without decimals)
+     * @param account Address to check
+     */
+    function balanceInTokens(address account) external view returns (uint256) {
+        return balanceOf[account] / 10**decimals;
+    }
+
+    /**
+     * @dev Get total supply in human-readable format
+     */
+    function totalSupplyInTokens() external view returns (uint256) {
+        return totalSupply / 10**decimals;
+    }
+}
