@@ -83,7 +83,7 @@ contract BespokeFundToken {
      * Can only be called by approved nonprofits or the fund owner
      * @param amount Amount to redeem
      */
-    function redeem(uint256 amount) external whenFactoryNotPaused {
+    function redeem(uint256 amount) external {
         require(amount > 0, "Amount must be > 0");
         require(
             approvedNonprofits[msg.sender] || msg.sender == owner,
@@ -131,7 +131,7 @@ contract BespokeFundToken {
     /**
      * @dev Transfer tokens
      */
-    function transfer(address to, uint256 amount) public whenFactoryNotPaused returns (bool) {
+    function transfer(address to, uint256 amount) public returns (bool) {
         require(to != address(0), "Transfer to zero address");
         require(balanceOf[msg.sender] >= amount, "Insufficient balance");
 
@@ -145,7 +145,7 @@ contract BespokeFundToken {
     /**
      * @dev Approve spender
      */
-    function approve(address spender, uint256 amount) public whenFactoryNotPaused returns (bool) {
+    function approve(address spender, uint256 amount) public returns (bool) {
         require(spender != address(0), "Approve to zero address");
 
         allowance[msg.sender][spender] = amount;
@@ -156,7 +156,7 @@ contract BespokeFundToken {
     /**
      * @dev Transfer from
      */
-    function transferFrom(address from, address to, uint256 amount) public whenFactoryNotPaused returns (bool) {
+    function transferFrom(address from, address to, uint256 amount) public returns (bool) {
         require(from != address(0), "Transfer from zero address");
         require(to != address(0), "Transfer to zero address");
         require(balanceOf[from] >= amount, "Insufficient balance");

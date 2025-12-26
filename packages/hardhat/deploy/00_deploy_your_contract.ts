@@ -42,6 +42,13 @@ const deployYourContract: DeployFunction = async function (hre: HardhatRuntimeEn
 
   const GivingFundToken = await hre.ethers.getContract<Contract>("GivingFundToken", deployer);
   console.log(`👋 Transfer Ownership to : ${newOwner}`, await GivingFundToken.transferOwnership(newOwner));
+
+  await deploy("BespokeFundTokenFactory", {
+    from: deployer,
+    args: [await GivingFundToken.getAddress()],
+    log: true,
+    autoMine: true,
+  });
 };
 
 export default deployYourContract;
