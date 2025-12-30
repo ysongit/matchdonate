@@ -5,6 +5,7 @@ interface IGivingFundToken {
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
     function transfer(address to, uint256 amount) external returns (bool);
     function balanceOf(address account) external view returns (uint256);
+    function isApprovedNonprofit(address nonprofit) external view returns (bool);
 }
 
 /**
@@ -21,7 +22,6 @@ contract BespokeFundToken {
     address public immutable gfToken; // Giving Fund Token address
     address public immutable factory; // Factory contract address
     
-    mapping(address => bool) public approvedNonprofits;
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
 
@@ -29,8 +29,6 @@ contract BespokeFundToken {
     event Approval(address indexed owner, address indexed spender, uint256 value);
     event Minted(address indexed user, uint256 amount);
     event Redeemed(address indexed redeemer, uint256 amount);
-    event NonprofitApproved(address indexed nonprofit);
-    event NonprofitRemoved(address indexed nonprofit);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner");
@@ -41,20 +39,13 @@ contract BespokeFundToken {
         string memory _name,
         string memory _symbol,
         address _owner,
-        address _gfToken,
-        address[] memory _nonprofits
+        address _gfToken
     ) {
         name = _name;
         symbol = _symbol;
         owner = _owner;
         gfToken = _gfToken;
         factory = msg.sender;
-
-        // Approve initial nonprofits
-        for (uint i = 0; i < _nonprofits.length; i++) {
-            approvedNonprofits[_nonprofits[i]] = true;
-            emit NonprofitApproved(_nonprofits[i]);
-        }
     }
 
     /**
@@ -86,7 +77,7 @@ contract BespokeFundToken {
     function redeem(uint256 amount) external {
         require(amount > 0, "Amount must be > 0");
         require(
-            approvedNonprofits[msg.sender] || msg.sender == owner,
+            IGivingFundToken(gfToken).isApprovedNonprofit(msg.sender) || msg.sender == owner,
             "Only approved nonprofits or owner"
         );
         require(balanceOf[msg.sender] >= amount, "Insufficient balance");
@@ -103,29 +94,6 @@ contract BespokeFundToken {
 
         emit Redeemed(msg.sender, amount);
         emit Transfer(msg.sender, address(0), amount);
-    }
-
-    /**
-     * @dev Add nonprofit to approved list
-     * @param nonprofit Address to approve
-     */
-    function approveNonprofit(address nonprofit) external onlyOwner {
-        require(nonprofit != address(0), "Invalid address");
-        require(!approvedNonprofits[nonprofit], "Already approved");
-        
-        approvedNonprofits[nonprofit] = true;
-        emit NonprofitApproved(nonprofit);
-    }
-
-    /**
-     * @dev Remove nonprofit from approved list
-     * @param nonprofit Address to remove
-     */
-    function removeNonprofit(address nonprofit) external onlyOwner {
-        require(approvedNonprofits[nonprofit], "Not approved");
-        
-        approvedNonprofits[nonprofit] = false;
-        emit NonprofitRemoved(nonprofit);
     }
 
     /**

@@ -62,8 +62,7 @@ contract BespokeFundTokenFactory {
      */
     function createFund(
         string memory name,
-        string memory symbol,
-        address[] memory nonprofits
+        string memory symbol
     ) external whenNotPaused returns (address) {
         require(bytes(name).length > 0, "Name required");
         require(bytes(symbol).length > 0, "Symbol required");
@@ -73,8 +72,7 @@ contract BespokeFundTokenFactory {
             name,
             symbol,
             msg.sender,
-            gfToken,
-            nonprofits
+            gfToken
         );
 
         address fundAddress = address(newFund);
