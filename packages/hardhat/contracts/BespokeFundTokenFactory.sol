@@ -58,7 +58,6 @@ contract BespokeFundTokenFactory {
      * @dev Create a new bespoke fund token
      * @param name Token name (e.g., "Alice's Education Fund")
      * @param symbol Token symbol (e.g., "ALEF")
-     * @param nonprofits Array of approved nonprofit addresses
      */
     function createFund(
         string memory name,
