@@ -49,6 +49,13 @@ const deployYourContract: DeployFunction = async function (hre: HardhatRuntimeEn
     log: true,
     autoMine: true,
   });
+
+  await deploy("MatchingFundTokenFactory", {
+    from: deployer,
+    args: [await GivingFundToken.getAddress()],
+    log: true,
+    autoMine: true,
+  });
 };
 
 export default deployYourContract;

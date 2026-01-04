@@ -61,13 +61,11 @@ contract MatchingFundTokenFactory {
      * @param name Token name (e.g., "Bob's Matching Campaign 2024")
      * @param symbol Token symbol (e.g., "BMC24")
      * @param expirationDate Unix timestamp when fund expires
-     * @param nonprofits Array of approved nonprofit addresses
      */
     function createFund(
         string memory name,
         string memory symbol,
-        uint256 expirationDate,
-        address[] memory nonprofits
+        uint256 expirationDate
     ) external whenNotPaused returns (address) {
         require(bytes(name).length > 0, "Name required");
         require(bytes(symbol).length > 0, "Symbol required");
@@ -79,8 +77,7 @@ contract MatchingFundTokenFactory {
             symbol,
             msg.sender,
             gfToken,
-            expirationDate,
-            nonprofits
+            expirationDate
         );
 
         address fundAddress = address(newFund);

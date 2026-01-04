@@ -7,6 +7,7 @@ interface IGivingFundToken {
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
     function transfer(address to, uint256 amount) external returns (bool);
     function balanceOf(address account) external view returns (uint256);
+    function isApprovedNonprofit(address nonprofit) external view returns (bool);
 }
 
 /**
@@ -25,7 +26,6 @@ contract MatchingFundToken {
     address public immutable factory; // Factory contract address
     uint256 public expirationDate; // Unix timestamp when fund expires
     
-    mapping(address => bool) public approvedNonprofits;
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
 
@@ -33,8 +33,6 @@ contract MatchingFundToken {
     event Approval(address indexed owner, address indexed spender, uint256 value);
     event Minted(address indexed user, uint256 amount);
     event Redeemed(address indexed redeemer, uint256 amount);
-    event NonprofitApproved(address indexed nonprofit);
-    event NonprofitRemoved(address indexed nonprofit);
     event ExpirationExtended(uint256 oldExpiration, uint256 newExpiration);
     event FundsReclaimed(address indexed owner, uint256 amount);
 
@@ -63,8 +61,7 @@ contract MatchingFundToken {
         string memory _symbol,
         address _owner,
         address _gfToken,
-        uint256 _expirationDate,
-        address[] memory _nonprofits
+        uint256 _expirationDate
     ) {
         require(_expirationDate > block.timestamp, "Expiration must be in future");
         
@@ -74,12 +71,6 @@ contract MatchingFundToken {
         gfToken = _gfToken;
         factory = msg.sender;
         expirationDate = _expirationDate;
-
-        // Approve initial nonprofits
-        for (uint i = 0; i < _nonprofits.length; i++) {
-            approvedNonprofits[_nonprofits[i]] = true;
-            emit NonprofitApproved(_nonprofits[i]);
-        }
     }
 
     /**
@@ -112,7 +103,7 @@ contract MatchingFundToken {
     function redeem(uint256 amount) external whenFactoryNotPaused beforeExpiration {
         require(amount > 0, "Amount must be > 0");
         require(
-            approvedNonprofits[msg.sender] || msg.sender == owner,
+           IGivingFundToken(gfToken).isApprovedNonprofit(msg.sender) || msg.sender == owner,
             "Only approved nonprofits or owner"
         );
         require(balanceOf[msg.sender] >= amount, "Insufficient balance");
@@ -161,29 +152,6 @@ contract MatchingFundToken {
         expirationDate = newExpirationDate;
 
         emit ExpirationExtended(oldExpiration, newExpirationDate);
-    }
-
-    /**
-     * @dev Add nonprofit to approved list
-     * @param nonprofit Address to approve
-     */
-    function approveNonprofit(address nonprofit) external onlyOwner {
-        require(nonprofit != address(0), "Invalid address");
-        require(!approvedNonprofits[nonprofit], "Already approved");
-        
-        approvedNonprofits[nonprofit] = true;
-        emit NonprofitApproved(nonprofit);
-    }
-
-    /**
-     * @dev Remove nonprofit from approved list
-     * @param nonprofit Address to remove
-     */
-    function removeNonprofit(address nonprofit) external onlyOwner {
-        require(approvedNonprofits[nonprofit], "Not approved");
-        
-        approvedNonprofits[nonprofit] = false;
-        emit NonprofitRemoved(nonprofit);
     }
 
     /**
