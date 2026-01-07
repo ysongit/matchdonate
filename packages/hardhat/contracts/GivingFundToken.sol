@@ -25,6 +25,7 @@ contract GivingFundToken {
 
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
+    mapping(address => bool) public approvedNonprofits;
 
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
@@ -33,6 +34,8 @@ contract GivingFundToken {
     event Paused(address indexed by);
     event Unpaused(address indexed by);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event NonprofitApproved(address indexed nonprofit);
+    event NonprofitRevoked(address indexed nonprofit);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner can call this");
@@ -175,6 +178,37 @@ contract GivingFundToken {
         address oldOwner = owner;
         owner = newOwner;
         emit OwnershipTransferred(oldOwner, newOwner);
+    }
+
+    /**
+     * @dev Approve a nonprofit address
+     * @param nonprofit Address of nonprofit to approve
+     */
+    function approveNonprofit(address nonprofit) external onlyOwner {
+        require(nonprofit != address(0), "Cannot approve zero address");
+        require(!approvedNonprofits[nonprofit], "Nonprofit already approved");
+        
+        approvedNonprofits[nonprofit] = true;
+        emit NonprofitApproved(nonprofit);
+    }
+
+    /**
+     * @dev Revoke a nonprofit address
+     * @param nonprofit Address of nonprofit to revoke
+     */
+    function revokeNonprofit(address nonprofit) external onlyOwner {
+        require(approvedNonprofits[nonprofit], "Nonprofit not approved");
+        
+        approvedNonprofits[nonprofit] = false;
+        emit NonprofitRevoked(nonprofit);
+    }
+
+    /**
+     * @dev Check if an address is an approved nonprofit
+     * @param nonprofit Address to check
+     */
+    function isApprovedNonprofit(address nonprofit) external view returns (bool) {
+        return approvedNonprofits[nonprofit];
     }
 
     /**

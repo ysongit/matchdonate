@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "./MatchingFundTokenFactory.sol";
+
 interface IGivingFundToken {
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
     function transfer(address to, uint256 amount) external returns (bool);
@@ -9,10 +11,11 @@ interface IGivingFundToken {
 }
 
 /**
- * @title BespokeFundToken
- * @dev Individual giving fund token backed 1:1 by GF tokens
+ * @title MatchingFundToken
+ * @dev Matching fund token with expiration date - backed 1:1 by GF tokens
+ * After expiration, nonprofits cannot redeem, and owner can reclaim GF tokens
  */
-contract BespokeFundToken {
+contract MatchingFundToken {
     string public name;
     string public symbol;
     uint8 public constant decimals = 6;
@@ -21,6 +24,7 @@ contract BespokeFundToken {
     address public immutable owner; // The individual who created this fund
     address public immutable gfToken; // Giving Fund Token address
     address public immutable factory; // Factory contract address
+    uint256 public expirationDate; // Unix timestamp when fund expires
     
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
@@ -29,9 +33,26 @@ contract BespokeFundToken {
     event Approval(address indexed owner, address indexed spender, uint256 value);
     event Minted(address indexed user, uint256 amount);
     event Redeemed(address indexed redeemer, uint256 amount);
+    event ExpirationExtended(uint256 oldExpiration, uint256 newExpiration);
+    event FundsReclaimed(address indexed owner, uint256 amount);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner");
+        _;
+    }
+
+    modifier whenFactoryNotPaused() {
+        require(!MatchingFundTokenFactory(factory).paused(), "Factory paused");
+        _;
+    }
+
+    modifier beforeExpiration() {
+        require(block.timestamp < expirationDate, "Fund has expired");
+        _;
+    }
+
+    modifier afterExpiration() {
+        require(block.timestamp >= expirationDate, "Fund has not expired yet");
         _;
     }
 
@@ -39,20 +60,24 @@ contract BespokeFundToken {
         string memory _name,
         string memory _symbol,
         address _owner,
-        address _gfToken
+        address _gfToken,
+        uint256 _expirationDate
     ) {
+        require(_expirationDate > block.timestamp, "Expiration must be in future");
+        
         name = _name;
         symbol = _symbol;
         owner = _owner;
         gfToken = _gfToken;
         factory = msg.sender;
+        expirationDate = _expirationDate;
     }
 
     /**
-     * @dev Mint bespoke tokens by depositing GF tokens (1:1)
+     * @dev Mint matching fund tokens by depositing GF tokens (1:1)
      * @param amount Amount of GF tokens to deposit
      */
-    function mint(uint256 amount) external {
+    function mint(uint256 amount) external whenFactoryNotPaused {
         require(amount > 0, "Amount must be > 0");
 
         // Transfer GF tokens from user to this contract
@@ -61,7 +86,7 @@ contract BespokeFundToken {
             "GF transfer failed"
         );
 
-        // Mint bespoke tokens
+        // Mint matching fund tokens
         totalSupply += amount;
         balanceOf[msg.sender] += amount;
 
@@ -70,19 +95,20 @@ contract BespokeFundToken {
     }
 
     /**
-     * @dev Redeem bespoke tokens for GF tokens
+     * @dev Redeem matching fund tokens for GF tokens
      * Can only be called by approved nonprofits or the fund owner
+     * Can only be called BEFORE expiration date
      * @param amount Amount to redeem
      */
-    function redeem(uint256 amount) external {
+    function redeem(uint256 amount) external whenFactoryNotPaused beforeExpiration {
         require(amount > 0, "Amount must be > 0");
         require(
-            IGivingFundToken(gfToken).isApprovedNonprofit(msg.sender) || msg.sender == owner,
+           IGivingFundToken(gfToken).isApprovedNonprofit(msg.sender) || msg.sender == owner,
             "Only approved nonprofits or owner"
         );
         require(balanceOf[msg.sender] >= amount, "Insufficient balance");
 
-        // Burn bespoke tokens
+        // Burn matching fund tokens
         balanceOf[msg.sender] -= amount;
         totalSupply -= amount;
 
@@ -97,9 +123,41 @@ contract BespokeFundToken {
     }
 
     /**
+     * @dev Owner can reclaim unused GF tokens after expiration
+     * This allows owner to recover funds that nonprofits didn't claim in time
+     */
+    function reclaimExpiredFunds() external onlyOwner afterExpiration {
+        uint256 gfBalance = IGivingFundToken(gfToken).balanceOf(address(this));
+        require(gfBalance > 0, "No funds to reclaim");
+
+        // Transfer all remaining GF tokens back to owner
+        require(
+            IGivingFundToken(gfToken).transfer(owner, gfBalance),
+            "GF transfer failed"
+        );
+
+        emit FundsReclaimed(owner, gfBalance);
+    }
+
+    /**
+     * @dev Extend the expiration date
+     * Only owner can extend, and can only extend to a future date
+     * @param newExpirationDate New expiration timestamp
+     */
+    function extendExpiration(uint256 newExpirationDate) external onlyOwner {
+        require(newExpirationDate > expirationDate, "New expiration must be later");
+        require(newExpirationDate > block.timestamp, "New expiration must be in future");
+
+        uint256 oldExpiration = expirationDate;
+        expirationDate = newExpirationDate;
+
+        emit ExpirationExtended(oldExpiration, newExpirationDate);
+    }
+
+    /**
      * @dev Transfer tokens
      */
-    function transfer(address to, uint256 amount) public returns (bool) {
+    function transfer(address to, uint256 amount) public whenFactoryNotPaused returns (bool) {
         require(to != address(0), "Transfer to zero address");
         require(balanceOf[msg.sender] >= amount, "Insufficient balance");
 
@@ -113,7 +171,7 @@ contract BespokeFundToken {
     /**
      * @dev Approve spender
      */
-    function approve(address spender, uint256 amount) public returns (bool) {
+    function approve(address spender, uint256 amount) public whenFactoryNotPaused returns (bool) {
         require(spender != address(0), "Approve to zero address");
 
         allowance[msg.sender][spender] = amount;
@@ -124,7 +182,7 @@ contract BespokeFundToken {
     /**
      * @dev Transfer from
      */
-    function transferFrom(address from, address to, uint256 amount) public returns (bool) {
+    function transferFrom(address from, address to, uint256 amount) public whenFactoryNotPaused returns (bool) {
         require(from != address(0), "Transfer from zero address");
         require(to != address(0), "Transfer to zero address");
         require(balanceOf[from] >= amount, "Insufficient balance");
@@ -136,6 +194,23 @@ contract BespokeFundToken {
 
         emit Transfer(from, to, amount);
         return true;
+    }
+
+    /**
+     * @dev Check if fund has expired
+     */
+    function hasExpired() external view returns (bool) {
+        return block.timestamp >= expirationDate;
+    }
+
+    /**
+     * @dev Get time remaining until expiration (0 if expired)
+     */
+    function timeUntilExpiration() external view returns (uint256) {
+        if (block.timestamp >= expirationDate) {
+            return 0;
+        }
+        return expirationDate - block.timestamp;
     }
 
     /**

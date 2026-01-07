@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./BespokeFundToken.sol";
+import "./MatchingFundToken.sol";
 
 /**
- * @title BespokeFundTokenFactory
- * @dev Factory contract for creating and tracking individual giving fund tokens
+ * @title MatchingFundTokenFactory
+ * @dev Factory contract for creating and tracking matching fund tokens with expiration
  */
-contract BespokeFundTokenFactory {
+contract MatchingFundTokenFactory {
     address public admin;
     address public immutable gfToken;
     bool public paused;
@@ -23,6 +23,7 @@ contract BespokeFundTokenFactory {
         address creator;
         string name;
         string symbol;
+        uint256 expirationDate;
         uint256 createdAt;
         bool exists;
     }
@@ -32,6 +33,7 @@ contract BespokeFundTokenFactory {
         address indexed fundAddress,
         string name,
         string symbol,
+        uint256 expirationDate,
         uint256 timestamp
     );
     event Paused(address indexed by);
@@ -55,23 +57,27 @@ contract BespokeFundTokenFactory {
     }
 
     /**
-     * @dev Create a new bespoke fund token
-     * @param name Token name (e.g., "Alice's Education Fund")
-     * @param symbol Token symbol (e.g., "ALEF")
+     * @dev Create a new matching fund token with expiration
+     * @param name Token name (e.g., "Bob's Matching Campaign 2024")
+     * @param symbol Token symbol (e.g., "BMC24")
+     * @param expirationDate Unix timestamp when fund expires
      */
     function createFund(
         string memory name,
-        string memory symbol
+        string memory symbol,
+        uint256 expirationDate
     ) external whenNotPaused returns (address) {
         require(bytes(name).length > 0, "Name required");
         require(bytes(symbol).length > 0, "Symbol required");
+        require(expirationDate > block.timestamp, "Expiration must be in future");
 
-        // Deploy new bespoke fund token
-        BespokeFundToken newFund = new BespokeFundToken(
+        // Deploy new matching fund token
+        MatchingFundToken newFund = new MatchingFundToken(
             name,
             symbol,
             msg.sender,
-            gfToken
+            gfToken,
+            expirationDate
         );
 
         address fundAddress = address(newFund);
@@ -86,11 +92,12 @@ contract BespokeFundTokenFactory {
             creator: msg.sender,
             name: name,
             symbol: symbol,
+            expirationDate: expirationDate,
             createdAt: block.timestamp,
             exists: true
         });
 
-        emit FundCreated(msg.sender, fundAddress, name, symbol, block.timestamp);
+        emit FundCreated(msg.sender, fundAddress, name, symbol, expirationDate, block.timestamp);
 
         return fundAddress;
     }
@@ -142,11 +149,12 @@ contract BespokeFundTokenFactory {
         address creator,
         string memory name,
         string memory symbol,
+        uint256 expirationDate,
         uint256 createdAt,
         bool exists
     ) {
         FundInfo memory info = fundInfo[fundAddress];
-        return (info.creator, info.name, info.symbol, info.createdAt, info.exists);
+        return (info.creator, info.name, info.symbol, info.expirationDate, info.createdAt, info.exists);
     }
 
     /**
@@ -158,6 +166,64 @@ contract BespokeFundTokenFactory {
     }
 
     /**
+     * @dev Get active (non-expired) funds for a user
+     * @param user User address
+     */
+    function getActiveFunds(address user) external view returns (address[] memory) {
+        address[] memory userFundsList = userFunds[user];
+        uint256 activeCount = 0;
+        
+        // Count active funds
+        for (uint i = 0; i < userFundsList.length; i++) {
+            if (block.timestamp < fundInfo[userFundsList[i]].expirationDate) {
+                activeCount++;
+            }
+        }
+        
+        // Build active funds array
+        address[] memory activeFunds = new address[](activeCount);
+        uint256 currentIndex = 0;
+        
+        for (uint i = 0; i < userFundsList.length; i++) {
+            if (block.timestamp < fundInfo[userFundsList[i]].expirationDate) {
+                activeFunds[currentIndex] = userFundsList[i];
+                currentIndex++;
+            }
+        }
+        
+        return activeFunds;
+    }
+
+    /**
+     * @dev Get expired funds for a user
+     * @param user User address
+     */
+    function getExpiredFunds(address user) external view returns (address[] memory) {
+        address[] memory userFundsList = userFunds[user];
+        uint256 expiredCount = 0;
+        
+        // Count expired funds
+        for (uint i = 0; i < userFundsList.length; i++) {
+            if (block.timestamp >= fundInfo[userFundsList[i]].expirationDate) {
+                expiredCount++;
+            }
+        }
+        
+        // Build expired funds array
+        address[] memory expiredFunds = new address[](expiredCount);
+        uint256 currentIndex = 0;
+        
+        for (uint i = 0; i < userFundsList.length; i++) {
+            if (block.timestamp >= fundInfo[userFundsList[i]].expirationDate) {
+                expiredFunds[currentIndex] = userFundsList[i];
+                currentIndex++;
+            }
+        }
+        
+        return expiredFunds;
+    }
+
+    /**
      * @dev Get multiple fund details at once
      * @param startIndex Starting index
      * @param count Number of funds to retrieve
@@ -166,7 +232,9 @@ contract BespokeFundTokenFactory {
         address[] memory fundAddresses,
         address[] memory creators,
         string[] memory names,
-        string[] memory symbols
+        string[] memory symbols,
+        uint256[] memory expirationDates,
+        bool[] memory hasExpired
     ) {
         require(startIndex < allFunds.length, "Start index out of bounds");
         
@@ -181,6 +249,8 @@ contract BespokeFundTokenFactory {
         creators = new address[](actualCount);
         names = new string[](actualCount);
         symbols = new string[](actualCount);
+        expirationDates = new uint256[](actualCount);
+        hasExpired = new bool[](actualCount);
         
         for (uint256 i = 0; i < actualCount; i++) {
             address fundAddr = allFunds[startIndex + i];
@@ -190,9 +260,11 @@ contract BespokeFundTokenFactory {
             creators[i] = info.creator;
             names[i] = info.name;
             symbols[i] = info.symbol;
+            expirationDates[i] = info.expirationDate;
+            hasExpired[i] = block.timestamp >= info.expirationDate;
         }
         
-        return (fundAddresses, creators, names, symbols);
+        return (fundAddresses, creators, names, symbols, expirationDates, hasExpired);
     }
 
     /**
