@@ -1,4 +1,5 @@
 import { getMetadata } from "~~/utils/scaffold-eth/getMetadata";
+import Sidebar from "~~/components/Sidebar";
 
 export const metadata = getMetadata({
   title: "Overview",
@@ -6,7 +7,14 @@ export const metadata = getMetadata({
 });
 
 const OverviewLayout = ({ children }: { children: React.ReactNode }) => {
-  return <>{children}</>;
+  return (
+    <div className="flex">
+      <Sidebar currentPage="overview" />
+      <div className="flex-1 p-8 bg-gray-50">
+        {children}
+      </div>
+    </div>
+  );
 };
 
 export default OverviewLayout;
