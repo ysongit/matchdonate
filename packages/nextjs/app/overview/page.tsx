@@ -5,6 +5,8 @@ import type { NextPage } from "next";
 import { Table, Button, Input, Dropdown } from 'antd';
 import { EllipsisVerticalIcon, CalendarIcon } from '@heroicons/react/24/outline';
 
+import { BespokeGivingFundTokenModal, MatchingFundTokenModal } from './_components';
+
 interface BespokeToken {
   name: string;
   availableTokens: number;
@@ -32,6 +34,8 @@ interface ReceivedToken {
 
 const Overview: NextPage = () => {
   const [giftCode, setGiftCode] = useState('');
+  const [isGivingModalOpen, setIsGivingModalOpen] = useState(false);
+  const [isMatchingModalOpen, setIsMatchingModalOpen] = useState(false);
 
   const bespokeTokens: BespokeToken[] = [
     {
@@ -253,6 +257,7 @@ const Overview: NextPage = () => {
               <Button
                 type="primary"
                 className="bg-purple-600 border-0 hover:bg-purple-700 rounded-full"
+                onClick={() => setIsGivingModalOpen(true)}
               >
                 Create My Own Giving Fund Token
               </Button>
@@ -289,6 +294,7 @@ const Overview: NextPage = () => {
               <Button
                 type="primary"
                 className="bg-purple-600 border-0 hover:bg-purple-700 rounded-full"
+                onClick={() => setIsMatchingModalOpen(true)}
               >
                 Create My Matching Fund Token
               </Button>
@@ -357,6 +363,16 @@ const Overview: NextPage = () => {
           </div>
         </div>
       </div>
+
+      <BespokeGivingFundTokenModal
+        isGivingModalOpen={isGivingModalOpen}
+        setIsGivingModalOpen={setIsGivingModalOpen}
+      />
+
+      <MatchingFundTokenModal
+        isMatchingModalOpen={isMatchingModalOpen}
+        setIsMatchingModalOpen={setIsMatchingModalOpen}
+      />
 
       <style jsx global>{`
         .custom-table .ant-table-thead > tr > th {
