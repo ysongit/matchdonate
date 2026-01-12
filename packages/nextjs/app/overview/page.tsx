@@ -1,28 +1,15 @@
 "use client";
 
-import React, { useState } from 'react';
+import { useEffect, useState } from "react";
 import type { NextPage } from "next";
+import { useAccount, useChainId, useConfig } from "wagmi";
 import { Table, Button, Input, Dropdown } from 'antd';
 import { EllipsisVerticalIcon, CalendarIcon } from '@heroicons/react/24/outline';
+import { readContract } from "@wagmi/core";
 
 import { BespokeGivingFundTokenModal, MatchingFundTokenModal } from './_components';
-
-interface BespokeToken {
-  name: string;
-  availableTokens: number;
-  percentageFunded: number;
-  donatedAmount: number;
-  transactionPending: number;
-}
-
-interface MatchingToken {
-  name: string;
-  availableTokens: number;
-  percentageFunded: number;
-  donatedAmount: number;
-  transactionPending: number;
-  matchingRatio: string;
-}
+import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
+import deployedContracts from "~~/contracts/deployedContracts";
 
 interface ReceivedToken {
   name: string;
@@ -32,38 +19,130 @@ interface ReceivedToken {
   tokenAmount: number;
 }
 
+interface FundDetails {
+  address: string;
+  creator: string;
+  name: string;
+  symbol: string;
+  createdAt: bigint;
+  exists: boolean;
+}
+
 const Overview: NextPage = () => {
+  const chainId = useChainId();
+  const config = useConfig();
+  const { address } = useAccount();
+
   const [giftCode, setGiftCode] = useState('');
   const [isGivingModalOpen, setIsGivingModalOpen] = useState(false);
   const [isMatchingModalOpen, setIsMatchingModalOpen] = useState(false);
+  const [bespokeFundsDetails, setBespokeFundsDetails] = useState<FundDetails[]>([]);
+  const [isLoadingBespokeDetails, setIsBespokeLoadingDetails] = useState(false);
+  const [matchingFundsDetails, setMatchingFundsDetails] = useState<FundDetails[]>([]);
+  const [isMatchingLoadingDetails, setIsMatchingLoadingDetails] = useState(false);
 
-  const bespokeTokens: BespokeToken[] = [
-    {
-      name: "Daisy's Giving Fund",
-      availableTokens: 2000,
-      percentageFunded: 100,
-      donatedAmount: 500,
-      transactionPending: 300,
-    },
-    {
-      name: "Daisy's Family Giving Fund",
-      availableTokens: 2000,
-      percentageFunded: 50,
-      donatedAmount: 250,
-      transactionPending: 200,
-    },
-  ];
+  const { data: bespokeFundTokenAddresses } = useScaffoldReadContract({
+    contractName: "BespokeFundTokenFactory",
+    functionName: "getUserFunds",
+    args: [address]
+  });
 
-  const matchingTokens: MatchingToken[] = [
-    {
-      name: "Daisy's Matching Fund",
-      availableTokens: 2000,
-      percentageFunded: 40,
-      donatedAmount: 500,
-      transactionPending: 300,
-      matchingRatio: '1 for 1',
-    },
-  ];
+   const { data: matchingFundTokenAddresses } = useScaffoldReadContract({
+    contractName: "MatchingFundTokenFactory",
+    functionName: "getUserFunds",
+    args: [address]
+  });
+
+  // Fetch detailed info for each fund
+  useEffect(() => {
+    if (!bespokeFundTokenAddresses || bespokeFundTokenAddresses.length === 0) {
+      setBespokeFundsDetails([]);
+      return;
+    }
+
+    const fetchAllFundDetails = async () => {
+      setIsBespokeLoadingDetails(true);
+      try {
+        const details: FundDetails[] = [];
+        
+        for (const fundAddress of bespokeFundTokenAddresses) {
+          const response = await readContract(config, {
+            // @ts-ignore
+            abi: deployedContracts[chainId].BespokeFundTokenFactory.abi,
+            // @ts-ignore
+            address: deployedContracts[chainId].BespokeFundTokenFactory.address as `0x${string}`,
+            functionName: "getFundInfo",
+            args: [fundAddress  as `0x${string}`]
+          });
+
+          console.log(response);
+
+          details.push({
+            address: fundAddress,
+            creator: address || "",
+            name: response[1],
+            symbol:  response[2],
+            createdAt: response[3],
+            exists: true,
+          });
+        }
+        
+        setBespokeFundsDetails(details);
+      } catch (error) {
+        console.error("Error fetching fund details:", error);
+      } finally {
+        setIsBespokeLoadingDetails(false);
+      }
+    };
+
+    fetchAllFundDetails();
+  }, [bespokeFundTokenAddresses, address]);
+
+  useEffect(() => {
+    if (!matchingFundTokenAddresses || matchingFundTokenAddresses.length === 0) {
+      setBespokeFundsDetails([]);
+      return;
+    }
+
+    const fetchAllMatchingFundDetails = async () => {
+      setIsMatchingLoadingDetails(true);
+      try {
+        const details: FundDetails[] = [];
+        
+        for (const fundAddress of matchingFundTokenAddresses) {
+          const response = await readContract(config, {
+            // @ts-ignore
+            abi: deployedContracts[chainId].MatchingFundTokenFactory.abi,
+            // @ts-ignore
+            address: deployedContracts[chainId].MatchingFundTokenFactory.address as `0x${string}`,
+            functionName: "getFundInfo",
+            args: [fundAddress  as `0x${string}`]
+          });
+
+          console.log(response);
+
+          details.push({
+            address: fundAddress,
+            creator: address || "",
+            name: response[1],
+            symbol:  response[2],
+            createdAt: response[3],
+            exists: true,
+          });
+        }
+        
+        setMatchingFundsDetails(details);
+      } catch (error) {
+        console.error("Error fetching fund details:", error);
+      } finally {
+        setIsMatchingLoadingDetails(false);
+      }
+    };
+
+    fetchAllMatchingFundDetails();
+  }, [matchingFundTokenAddresses, address]);
+
+  console.log(matchingFundsDetails);
 
   const receivedTokens: ReceivedToken[] = [
     {
@@ -93,25 +172,25 @@ const Overview: NextPage = () => {
       title: 'Available Tokens',
       dataIndex: 'availableTokens',
       key: 'availableTokens',
-      render: (val: number) => `$${val.toLocaleString()}`,
+      render: (val: number) => `$${0}`,
     },
     {
       title: 'Percentage Funded',
       dataIndex: 'percentageFunded',
       key: 'percentageFunded',
-      render: (val: number) => `${val}%`,
+      render: (val: number) => `${0}%`,
     },
     {
       title: 'Donated Amount',
       dataIndex: 'donatedAmount',
       key: 'donatedAmount',
-      render: (val: number) => `$${val}`,
+      render: (val: number) => `$${0}`,
     },
     {
       title: 'Transaction Pending Amount',
       dataIndex: 'transactionPending',
       key: 'transactionPending',
-      render: (val: number) => `$${val}`,
+      render: (val: number) => `$${0}`,
     },
   ];
 
@@ -126,25 +205,25 @@ const Overview: NextPage = () => {
       title: 'Available Tokens',
       dataIndex: 'availableTokens',
       key: 'availableTokens',
-      render: (val: number) => `$${val.toLocaleString()}`,
+      render: (val: number) => `$${0}`,
     },
     {
       title: 'Percentage Funded',
       dataIndex: 'percentageFunded',
       key: 'percentageFunded',
-      render: (val: number) => `${val}%`,
+      render: (val: number) => `${0}%`,
     },
     {
       title: 'Donated Amount',
       dataIndex: 'donatedAmount',
       key: 'donatedAmount',
-      render: (val: number) => `$${val}`,
+      render: (val: number) => `$${0}`,
     },
     {
       title: 'Transaction Pending Amount',
       dataIndex: 'transactionPending',
       key: 'transactionPending',
-      render: (val: number) => `$${val}`,
+      render: (val: number) => `$${0}`,
     },
     {
       title: 'Matching Ratio',
@@ -225,7 +304,7 @@ const Overview: NextPage = () => {
             <div className="flex items-center space-x-4 mb-4 sm:mb-0">
               <div>
                 <h2 className="text-gray-600 text-sm mb-1">General Giving Fund</h2>
-                <p className="text-3xl font-semibold text-purple-600">$1,000</p>
+                <p className="text-3xl font-semibold text-purple-600">$0</p>
               </div>
               <Button
                 type="primary"
@@ -269,10 +348,11 @@ const Overview: NextPage = () => {
           <div className="overflow-x-auto">
             <Table
               columns={bespokeColumns}
-              dataSource={bespokeTokens}
+              dataSource={bespokeFundsDetails}
               pagination={false}
               rowKey="name"
               className="custom-table"
+              loading={isLoadingBespokeDetails}
             />
           </div>
         </div>
@@ -306,10 +386,11 @@ const Overview: NextPage = () => {
           <div className="overflow-x-auto">
             <Table
               columns={matchingColumns}
-              dataSource={matchingTokens}
+              dataSource={matchingFundsDetails}
               pagination={false}
               rowKey="name"
               className="custom-table"
+              loading={isMatchingLoadingDetails}
             />
           </div>
         </div>

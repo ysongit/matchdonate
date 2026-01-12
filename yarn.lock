@@ -4883,6 +4883,7 @@ __metadata:
     "@trivago/prettier-plugin-sort-imports": ^4.3.0
     "@types/node": ^18.19.50
     "@types/react": ^19.0.7
+    "@wagmi/core": ^3.2.1
     abitype: 1.0.6
     antd: ^6.1.4
     bgipfs: ^0.0.12
@@ -7468,6 +7469,29 @@ __metadata:
     typescript:
       optional: true
   checksum: 5f9621024cb2a86825d6d1c62bb0d795f10dc60a16b4cc9ac78c72533889066a00c37ef8582169d5533d7d4061440397b1fa4cf86e69424036759e3413b6a765
+  languageName: node
+  linkType: hard
+
+"@wagmi/core@npm:^3.2.1":
+  version: 3.2.1
+  resolution: "@wagmi/core@npm:3.2.1"
+  dependencies:
+    eventemitter3: 5.0.1
+    mipd: 0.0.7
+    zustand: 5.0.0
+  peerDependencies:
+    "@tanstack/query-core": ">=5.0.0"
+    ox: ">=0.11.1"
+    typescript: ">=5.7.3"
+    viem: 2.x
+  peerDependenciesMeta:
+    "@tanstack/query-core":
+      optional: true
+    ox:
+      optional: true
+    typescript:
+      optional: true
+  checksum: d1375e5c03d35b03435c870a42d7f7b7e7238c91afad2e63d74084ad9b2b5f3d706c9dde9fa1551ab6ff0b755b8cd1e5e5b6e167255bc5205f7d79d1c9dc07f9
   languageName: node
   linkType: hard
 
