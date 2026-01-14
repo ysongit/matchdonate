@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Address } from "@scaffold-ui/components";
 import type { NextPage } from "next";
 import { hardhat } from "viem/chains";
@@ -11,6 +13,10 @@ import { useTargetNetwork } from "~~/hooks/scaffold-eth";
 const Home: NextPage = () => {
   const { address: connectedAddress } = useAccount();
   const { targetNetwork } = useTargetNetwork();
+
+  useEffect(() => {
+    if (connectedAddress) redirect("/overview");
+  }, [connectedAddress]);
 
   return (
     <>
