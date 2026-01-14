@@ -1,5 +1,5 @@
-import { Button, Input, Modal, Form, DatePicker } from 'antd';
-import { useScaffoldWriteContract } from '~~/hooks/scaffold-eth';
+import { Button, DatePicker, Form, Input, Modal } from "antd";
+import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 
 type MatchingFundTokeProps = {
   isMatchingModalOpen: boolean;
@@ -9,22 +9,22 @@ type MatchingFundTokeProps = {
 export const MatchingFundTokenModal = ({ isMatchingModalOpen, setIsMatchingModalOpen }: MatchingFundTokeProps) => {
   const [matchingForm] = Form.useForm();
 
-  const { writeContractAsync: writeYourContractAsync } = useScaffoldWriteContract({ contractName: "MatchingFundTokenFactory" });
+  const { writeContractAsync: writeYourContractAsync } = useScaffoldWriteContract({
+    contractName: "MatchingFundTokenFactory",
+  });
 
   const handleCreateMatchingToken = () => {
-    matchingForm.validateFields().then(async (values) => {
+    matchingForm.validateFields().then(async values => {
       try {
         // Convert date to Unix timestamp (in seconds)
-        const timestamp = values.expirationDate 
-          ? Math.floor(values.expirationDate.valueOf() / 1000) 
-          : 0;
+        const timestamp = values.expirationDate ? Math.floor(values.expirationDate.valueOf() / 1000) : 0;
 
         await writeYourContractAsync({
           functionName: "createFund",
           args: [values.tokenName, values.tokenSymbol, BigInt(timestamp)],
         });
 
-        console.log('Creating Matching Token:', values, timestamp);
+        console.log("Creating Matching Token:", values, timestamp);
         setIsMatchingModalOpen(false);
         matchingForm.resetFields();
       } catch (e) {
@@ -62,31 +62,22 @@ export const MatchingFundTokenModal = ({ isMatchingModalOpen, setIsMatchingModal
       ]}
     >
       <Form form={matchingForm} layout="vertical" className="mt-4">
-        <Form.Item
-          label="Token Name"
-          name="tokenName"
-          rules={[{ required: true, message: 'Please enter token name' }]}
-        >
+        <Form.Item label="Token Name" name="tokenName" rules={[{ required: true, message: "Please enter token name" }]}>
           <Input placeholder="Enter token name" size="large" />
         </Form.Item>
         <Form.Item
           label="Token Symbol"
           name="tokenSymbol"
-          rules={[{ required: true, message: 'Please enter token symbol' }]}
+          rules={[{ required: true, message: "Please enter token symbol" }]}
         >
           <Input placeholder="Enter token symbol" size="large" />
         </Form.Item>
         <Form.Item
           label="Expiration Date"
           name="expirationDate"
-          rules={[{ required: true, message: 'Please select expiration date' }]}
+          rules={[{ required: true, message: "Please select expiration date" }]}
         >
-          <DatePicker 
-            className="w-full" 
-            size="large" 
-            placeholder="Select expiration date"
-            format="YYYY-MM-DD"
-          />
+          <DatePicker className="w-full" size="large" placeholder="Select expiration date" format="YYYY-MM-DD" />
         </Form.Item>
       </Form>
     </Modal>

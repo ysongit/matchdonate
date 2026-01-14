@@ -1,15 +1,15 @@
-import React from 'react';
+import React from "react";
 import {
-  EyeIcon,
-  UserIcon,
-  UserGroupIcon,
+  ArrowDownLeftIcon,
+  ArrowPathIcon,
+  ChartBarIcon,
   CreditCardIcon,
   CurrencyDollarIcon,
   DocumentTextIcon,
-  ArrowPathIcon,
-  ChartBarIcon,
-  ArrowDownLeftIcon,
-} from '@heroicons/react/24/outline';
+  EyeIcon,
+  UserGroupIcon,
+  UserIcon,
+} from "@heroicons/react/24/outline";
 
 interface SidebarProps {
   currentPage: string;
@@ -25,44 +25,44 @@ interface MenuItem {
 const Sidebar: React.FC<SidebarProps> = ({ currentPage }) => {
   const menuItems: MenuItem[] = [
     {
-      id: 'overview',
-      label: 'Overview',
+      id: "overview",
+      label: "Overview",
       icon: <EyeIcon className="w-5 h-5" />,
     },
     {
-      id: 'my-giving-fund',
-      label: 'My Giving Fund',
+      id: "my-giving-fund",
+      label: "My Giving Fund",
       icon: <UserIcon className="w-5 h-5" />,
     },
     {
-      id: 'my-community',
-      label: 'My Community',
+      id: "my-community",
+      label: "My Community",
       icon: <UserGroupIcon className="w-5 h-5" />,
     },
     {
-      id: 'gifting',
-      label: 'Gifting',
+      id: "gifting",
+      label: "Gifting",
       icon: <CreditCardIcon className="w-5 h-5" />,
     },
     {
-      id: 'donation',
-      label: 'Donation',
+      id: "donation",
+      label: "Donation",
       icon: <CurrencyDollarIcon className="w-5 h-5" />,
     },
     {
-      id: 'payments',
-      label: 'Payments',
+      id: "payments",
+      label: "Payments",
       icon: <DocumentTextIcon className="w-5 h-5" />,
       badge: 9,
     },
     {
-      id: 'transactions',
-      label: 'Transactions',
+      id: "transactions",
+      label: "Transactions",
       icon: <ArrowPathIcon className="w-5 h-5" />,
     },
     {
-      id: 'statistics',
-      label: 'Statistics',
+      id: "statistics",
+      label: "Statistics",
       icon: <ChartBarIcon className="w-5 h-5" />,
     },
   ];
@@ -70,9 +70,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage }) => {
   return (
     <div className="w-72 bg-white h-screen shadow-lg p-4">
       <nav className="space-y-2">
-        {menuItems.map((item) => {
+        {menuItems.map(item => {
           const isActive = currentPage === item.id;
-          
+
           return (
             <button
               key={item.id}
@@ -81,12 +81,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage }) => {
                 transition-all duration-200 text-left group relative
                 ${
                   isActive
-                    ? 'bg-gradient-to-r from-purple-400 to-pink-400 text-white shadow-md'
-                    : 'text-gray-400 hover:bg-purple-50 hover:text-purple-500'
+                    ? "bg-gradient-to-r from-purple-400 to-pink-400 text-white shadow-md"
+                    : "text-gray-400 hover:bg-purple-50 hover:text-purple-500"
                 }
               `}
             >
-              <span className={isActive ? 'text-white' : 'text-purple-400 group-hover:text-purple-500'}>
+              <span className={isActive ? "text-white" : "text-purple-400 group-hover:text-purple-500"}>
                 {item.icon}
               </span>
               <span className="font-medium">{item.label}</span>

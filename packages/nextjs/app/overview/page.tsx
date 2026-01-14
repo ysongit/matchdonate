@@ -1,15 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AddMoreFundsModal, BespokeGivingFundTokenModal, MatchingFundTokenModal } from "./_components";
+import { readContract } from "@wagmi/core";
+import { Button, Dropdown, Input, Table } from "antd";
 import type { NextPage } from "next";
 import { useAccount, useChainId, useConfig } from "wagmi";
-import { Table, Button, Input, Dropdown } from 'antd';
-import { EllipsisVerticalIcon, CalendarIcon } from '@heroicons/react/24/outline';
-import { readContract } from "@wagmi/core";
-
-import { AddMoreFundsModal, BespokeGivingFundTokenModal, MatchingFundTokenModal } from './_components';
-import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
+import { CalendarIcon, EllipsisVerticalIcon } from "@heroicons/react/24/outline";
 import deployedContracts from "~~/contracts/deployedContracts";
+import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 
 interface ReceivedToken {
   name: string;
@@ -33,7 +32,7 @@ const Overview: NextPage = () => {
   const config = useConfig();
   const { address } = useAccount();
 
-  const [giftCode, setGiftCode] = useState('');
+  const [giftCode, setGiftCode] = useState("");
   const [isGivingModalOpen, setIsGivingModalOpen] = useState(false);
   const [isMatchingModalOpen, setIsMatchingModalOpen] = useState(false);
   const [isAddMoreModalOpen, setIsAddMoreModalOpen] = useState(false);
@@ -45,19 +44,19 @@ const Overview: NextPage = () => {
   const { data: givingFundTokenAmount = 0 } = useScaffoldReadContract({
     contractName: "GivingFundToken",
     functionName: "balanceOf",
-    args: [address]
+    args: [address],
   });
 
   const { data: bespokeFundTokenAddresses } = useScaffoldReadContract({
     contractName: "BespokeFundTokenFactory",
     functionName: "getUserFunds",
-    args: [address]
+    args: [address],
   });
 
   const { data: matchingFundTokenAddresses } = useScaffoldReadContract({
     contractName: "MatchingFundTokenFactory",
     functionName: "getUserFunds",
-    args: [address]
+    args: [address],
   });
 
   // Fetch detailed info for each fund
@@ -71,7 +70,7 @@ const Overview: NextPage = () => {
       setIsBespokeLoadingDetails(true);
       try {
         const details: FundDetails[] = [];
-        
+
         for (const fundAddress of bespokeFundTokenAddresses) {
           const response = await readContract(config, {
             // @ts-ignore
@@ -79,19 +78,19 @@ const Overview: NextPage = () => {
             // @ts-ignore
             address: deployedContracts[chainId].BespokeFundTokenFactory.address as `0x${string}`,
             functionName: "getFundInfo",
-            args: [fundAddress  as `0x${string}`]
+            args: [fundAddress as `0x${string}`],
           });
 
           details.push({
             address: fundAddress,
             creator: address || "",
             name: response[1],
-            symbol:  response[2],
+            symbol: response[2],
             createdAt: response[3],
             exists: true,
           });
         }
-        
+
         setBespokeFundsDetails(details);
       } catch (error) {
         console.error("Error fetching fund details:", error);
@@ -113,7 +112,7 @@ const Overview: NextPage = () => {
       setIsMatchingLoadingDetails(true);
       try {
         const details: FundDetails[] = [];
-        
+
         for (const fundAddress of matchingFundTokenAddresses) {
           const response = await readContract(config, {
             // @ts-ignore
@@ -121,19 +120,19 @@ const Overview: NextPage = () => {
             // @ts-ignore
             address: deployedContracts[chainId].MatchingFundTokenFactory.address as `0x${string}`,
             functionName: "getFundInfo",
-            args: [fundAddress  as `0x${string}`]
+            args: [fundAddress as `0x${string}`],
           });
 
           details.push({
             address: fundAddress,
             creator: address || "",
             name: response[1],
-            symbol:  response[2],
+            symbol: response[2],
             createdAt: response[3],
             exists: true,
           });
         }
-        
+
         setMatchingFundsDetails(details);
       } catch (error) {
         console.error("Error fetching fund details:", error);
@@ -147,131 +146,131 @@ const Overview: NextPage = () => {
 
   const receivedTokens: ReceivedToken[] = [
     {
-      name: 'LM Giving Fund',
-      type: 'Giving Token',
-      from: 'LM',
-      matchingRatio: 'N/A',
+      name: "LM Giving Fund",
+      type: "Giving Token",
+      from: "LM",
+      matchingRatio: "N/A",
       tokenAmount: 1000,
     },
     {
-      name: 'CK Matching Fund',
-      type: 'Matching Token',
-      from: 'Jen Li',
-      matchingRatio: '1 for 1',
+      name: "CK Matching Fund",
+      type: "Matching Token",
+      from: "Jen Li",
+      matchingRatio: "1 for 1",
       tokenAmount: 1000,
     },
   ];
 
   const bespokeColumns = [
     {
-      title: 'Fund Token Name',
-      dataIndex: 'name',
-      key: 'name',
-      className: 'text-purple-600 font-medium',
+      title: "Fund Token Name",
+      dataIndex: "name",
+      key: "name",
+      className: "text-purple-600 font-medium",
     },
     {
-      title: 'Available Tokens',
-      dataIndex: 'availableTokens',
-      key: 'availableTokens',
+      title: "Available Tokens",
+      dataIndex: "availableTokens",
+      key: "availableTokens",
       render: (val: number) => `$${0}`,
     },
     {
-      title: 'Percentage Funded',
-      dataIndex: 'percentageFunded',
-      key: 'percentageFunded',
+      title: "Percentage Funded",
+      dataIndex: "percentageFunded",
+      key: "percentageFunded",
       render: (val: number) => `${0}%`,
     },
     {
-      title: 'Donated Amount',
-      dataIndex: 'donatedAmount',
-      key: 'donatedAmount',
+      title: "Donated Amount",
+      dataIndex: "donatedAmount",
+      key: "donatedAmount",
       render: (val: number) => `$${0}`,
     },
     {
-      title: 'Transaction Pending Amount',
-      dataIndex: 'transactionPending',
-      key: 'transactionPending',
+      title: "Transaction Pending Amount",
+      dataIndex: "transactionPending",
+      key: "transactionPending",
       render: (val: number) => `$${0}`,
     },
   ];
 
   const matchingColumns = [
     {
-      title: 'Fund Token Name',
-      dataIndex: 'name',
-      key: 'name',
-      className: 'text-purple-600 font-medium',
+      title: "Fund Token Name",
+      dataIndex: "name",
+      key: "name",
+      className: "text-purple-600 font-medium",
     },
     {
-      title: 'Available Tokens',
-      dataIndex: 'availableTokens',
-      key: 'availableTokens',
+      title: "Available Tokens",
+      dataIndex: "availableTokens",
+      key: "availableTokens",
       render: (val: number) => `$${0}`,
     },
     {
-      title: 'Percentage Funded',
-      dataIndex: 'percentageFunded',
-      key: 'percentageFunded',
+      title: "Percentage Funded",
+      dataIndex: "percentageFunded",
+      key: "percentageFunded",
       render: (val: number) => `${0}%`,
     },
     {
-      title: 'Donated Amount',
-      dataIndex: 'donatedAmount',
-      key: 'donatedAmount',
+      title: "Donated Amount",
+      dataIndex: "donatedAmount",
+      key: "donatedAmount",
       render: (val: number) => `$${0}`,
     },
     {
-      title: 'Transaction Pending Amount',
-      dataIndex: 'transactionPending',
-      key: 'transactionPending',
+      title: "Transaction Pending Amount",
+      dataIndex: "transactionPending",
+      key: "transactionPending",
       render: (val: number) => `$${0}`,
     },
     {
-      title: 'Matching Ratio',
-      dataIndex: 'matchingRatio',
-      key: 'matchingRatio',
+      title: "Matching Ratio",
+      dataIndex: "matchingRatio",
+      key: "matchingRatio",
     },
   ];
 
   const receivedColumns = [
     {
-      title: 'Fund Token Name',
-      dataIndex: 'name',
-      key: 'name',
-      className: 'text-purple-600 font-medium',
+      title: "Fund Token Name",
+      dataIndex: "name",
+      key: "name",
+      className: "text-purple-600 font-medium",
     },
     {
-      title: 'Type',
-      dataIndex: 'type',
-      key: 'type',
+      title: "Type",
+      dataIndex: "type",
+      key: "type",
     },
     {
-      title: 'From',
-      dataIndex: 'from',
-      key: 'from',
+      title: "From",
+      dataIndex: "from",
+      key: "from",
     },
     {
-      title: 'Matching Ratio',
-      dataIndex: 'matchingRatio',
-      key: 'matchingRatio',
+      title: "Matching Ratio",
+      dataIndex: "matchingRatio",
+      key: "matchingRatio",
     },
     {
-      title: 'Token Amount',
-      dataIndex: 'tokenAmount',
-      key: 'tokenAmount',
+      title: "Token Amount",
+      dataIndex: "tokenAmount",
+      key: "tokenAmount",
       render: (val: number) => `$${val.toLocaleString()}`,
     },
   ];
 
   const menuItems = [
-    { key: 'view', label: 'View' },
-    { key: 'donate', label: 'Donate' },
+    { key: "view", label: "View" },
+    { key: "donate", label: "Donate" },
   ];
 
   const giftMenuItems = [
-    { key: 'view', label: 'View' },
-    { key: 'donate', label: 'Donate' },
-    { key: 'gift', label: 'Gift' },
+    { key: "view", label: "View" },
+    { key: "donate", label: "Donate" },
+    { key: "gift", label: "Gift" },
   ];
 
   return (
@@ -315,7 +314,7 @@ const Overview: NextPage = () => {
                 Add More
               </Button>
             </div>
-            <Dropdown menu={{ items: menuItems }} trigger={['click']}>
+            <Dropdown menu={{ items: menuItems }} trigger={["click"]}>
               <Button type="text" icon={<EllipsisVerticalIcon className="w-5 h-5" />} />
             </Dropdown>
           </div>
@@ -326,11 +325,7 @@ const Overview: NextPage = () => {
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6">
             <div className="flex items-center space-x-4 mb-4 lg:mb-0">
               <h2 className="text-gray-600 text-lg">Bespoke Giving Fund Token</h2>
-              <Button
-                type="primary"
-                size="small"
-                className="bg-pink-500 border-0 hover:bg-pink-600 rounded-full px-4"
-              >
+              <Button type="primary" size="small" className="bg-pink-500 border-0 hover:bg-pink-600 rounded-full px-4">
                 Gift
               </Button>
             </div>
@@ -342,7 +337,7 @@ const Overview: NextPage = () => {
               >
                 Create My Own Giving Fund Token
               </Button>
-              <Dropdown menu={{ items: giftMenuItems }} trigger={['click']}>
+              <Dropdown menu={{ items: giftMenuItems }} trigger={["click"]}>
                 <Button type="text" icon={<EllipsisVerticalIcon className="w-5 h-5" />} />
               </Dropdown>
             </div>
@@ -380,7 +375,7 @@ const Overview: NextPage = () => {
               >
                 Create My Matching Fund Token
               </Button>
-              <Dropdown menu={{ items: giftMenuItems }} trigger={['click']}>
+              <Dropdown menu={{ items: giftMenuItems }} trigger={["click"]}>
                 <Button type="text" icon={<EllipsisVerticalIcon className="w-5 h-5" />} />
               </Dropdown>
             </div>
@@ -410,7 +405,7 @@ const Overview: NextPage = () => {
                 Gift
               </Button>
             </div>
-            <Dropdown menu={{ items: menuItems }} trigger={['click']}>
+            <Dropdown menu={{ items: menuItems }} trigger={["click"]}>
               <Button type="text" icon={<EllipsisVerticalIcon className="w-5 h-5" />} />
             </Dropdown>
           </div>
@@ -432,7 +427,7 @@ const Overview: NextPage = () => {
             <Input
               placeholder="Enter gift code"
               value={giftCode}
-              onChange={(e) => setGiftCode(e.target.value)}
+              onChange={e => setGiftCode(e.target.value)}
               className="flex-1"
               size="large"
             />
@@ -453,10 +448,7 @@ const Overview: NextPage = () => {
         setIsAddMoreModalOpen={setIsAddMoreModalOpen}
       />
 
-      <BespokeGivingFundTokenModal
-        isGivingModalOpen={isGivingModalOpen}
-        setIsGivingModalOpen={setIsGivingModalOpen}
-      />
+      <BespokeGivingFundTokenModal isGivingModalOpen={isGivingModalOpen} setIsGivingModalOpen={setIsGivingModalOpen} />
 
       <MatchingFundTokenModal
         isMatchingModalOpen={isMatchingModalOpen}

@@ -1,18 +1,22 @@
-import { Button, Input, Modal, Form, Radio, Space } from 'antd';
 import { readContract, waitForTransactionReceipt } from "@wagmi/core";
+import { Button, Form, Input, Modal, Radio, Space } from "antd";
 import { useChainId, useConfig, useWriteContract } from "wagmi";
-import { useScaffoldWriteContract } from '~~/hooks/scaffold-eth';
-import deployedContracts from '~~/contracts/deployedContracts';
+import deployedContracts from "~~/contracts/deployedContracts";
+import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 
 type AddMoreFundsTokenProps = {
-  userAddress: string,
+  userAddress?: string;
   isAddMoreModalOpen: boolean;
   setIsAddMoreModalOpen: Function;
 };
 
 const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS;
 
-export const AddMoreFundsModal = ({ userAddress, isAddMoreModalOpen, setIsAddMoreModalOpen }: AddMoreFundsTokenProps) => {
+export const AddMoreFundsModal = ({
+  userAddress,
+  isAddMoreModalOpen,
+  setIsAddMoreModalOpen,
+}: AddMoreFundsTokenProps) => {
   const [addMoreForm] = Form.useForm();
 
   const chainId = useChainId();
@@ -24,7 +28,8 @@ export const AddMoreFundsModal = ({ userAddress, isAddMoreModalOpen, setIsAddMor
   async function getApproveAmount(): Promise<number> {
     // read from the chain to see if we have approved enough token
     const response = await readContract(config, {
-      abi: [{
+      abi: [
+        {
           inputs: [
             {
               internalType: "address",
@@ -47,25 +52,24 @@ export const AddMoreFundsModal = ({ userAddress, isAddMoreModalOpen, setIsAddMor
           ],
           stateMutability: "view",
           type: "function",
-      },],
+        },
+      ],
       address: USDC_ADDRESS as `0x${string}`,
       functionName: "allowance",
       // @ts-ignore
-      args: [userAddress, deployedContracts[chainId].GivingFundToken.address  as `0x${string}`]
+      args: [userAddress, deployedContracts[chainId].GivingFundToken.address as `0x${string}`],
     });
     // @ts-ignore
     return response as number;
   }
 
   const handleAddMore = () => {
-    addMoreForm.validateFields().then(async (values) => {
-       try {
+    addMoreForm.validateFields().then(async values => {
+      try {
         const approvedAmount = await getApproveAmount();
         console.log(approvedAmount);
 
-        const parseAmount = parseUnits(values.amount, 6);
-
-        if (approvedAmount < parseAmount) {
+        if (approvedAmount < values.amount) {
           const approvalHash = await writeContractAsync({
             abi: [
               {
@@ -97,20 +101,20 @@ export const AddMoreFundsModal = ({ userAddress, isAddMoreModalOpen, setIsAddMor
             functionName: "approve",
             // @ts-ignore
             args: [deployedContracts[chainId].GivingFundToken.address as `0x${string}`, BigInt(values.amount)],
-          })
+          });
 
           const approvalReceipt = await waitForTransactionReceipt(config, {
-            hash: approvalHash
-          })
+            hash: approvalHash,
+          });
           console.log("Approval confirmed", approvalReceipt);
         }
 
         await writeYourContractAsync({
           functionName: "mint",
-          args: [parseAmount],
+          args: [values.amount],
         });
 
-        console.log('Adding funds:', values);
+        console.log("Adding funds:", values);
         setIsAddMoreModalOpen(false);
         addMoreForm.resetFields();
       } catch (e) {
@@ -131,24 +135,19 @@ export const AddMoreFundsModal = ({ userAddress, isAddMoreModalOpen, setIsAddMor
       closeIcon={<span className="text-gray-400 text-2xl">×</span>}
       width={440}
     >
-      <Form 
-        form={addMoreForm} 
-        layout="vertical" 
-        className="mt-4"
-        initialValues={{ paymentMethod: '' }}
-      >
+      <Form form={addMoreForm} layout="vertical" className="mt-4" initialValues={{ paymentMethod: "" }}>
         <Form.Item
           label={<span className="text-gray-700 font-semibold text-base">Amount</span>}
           name="amount"
-          rules={[{ required: true, message: 'Please enter amount' }]}
+          rules={[{ required: true, message: "Please enter amount" }]}
         >
           <Input placeholder="Amount" size="large" className="rounded-md" />
         </Form.Item>
-        
+
         <Form.Item
           label={<span className="text-gray-700 font-semibold text-base">Select Payment Method</span>}
           name="paymentMethod"
-          rules={[{ required: true, message: 'Please select a payment method' }]}
+          rules={[{ required: true, message: "Please select a payment method" }]}
         >
           <Radio.Group className="w-full">
             <Space orientation="vertical" className="w-full" size="middle">

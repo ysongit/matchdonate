@@ -2,9 +2,9 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Address } from "@scaffold-ui/components";
 import type { NextPage } from "next";
-import { redirect } from 'next/navigation';
 import { hardhat } from "viem/chains";
 import { useAccount } from "wagmi";
 import { BugAntIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
@@ -15,8 +15,8 @@ const Home: NextPage = () => {
   const { targetNetwork } = useTargetNetwork();
 
   useEffect(() => {
-    if (connectedAddress) redirect('/overview');
-  }, [connectedAddress])
+    if (connectedAddress) redirect("/overview");
+  }, [connectedAddress]);
 
   return (
     <>
