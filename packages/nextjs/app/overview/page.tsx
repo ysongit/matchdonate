@@ -7,7 +7,7 @@ import { Table, Button, Input, Dropdown } from 'antd';
 import { EllipsisVerticalIcon, CalendarIcon } from '@heroicons/react/24/outline';
 import { readContract } from "@wagmi/core";
 
-import { BespokeGivingFundTokenModal, MatchingFundTokenModal } from './_components';
+import { AddMoreFundsModal, BespokeGivingFundTokenModal, MatchingFundTokenModal } from './_components';
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 import deployedContracts from "~~/contracts/deployedContracts";
 
@@ -36,10 +36,17 @@ const Overview: NextPage = () => {
   const [giftCode, setGiftCode] = useState('');
   const [isGivingModalOpen, setIsGivingModalOpen] = useState(false);
   const [isMatchingModalOpen, setIsMatchingModalOpen] = useState(false);
+  const [isAddMoreModalOpen, setIsAddMoreModalOpen] = useState(false);
   const [bespokeFundsDetails, setBespokeFundsDetails] = useState<FundDetails[]>([]);
   const [isLoadingBespokeDetails, setIsBespokeLoadingDetails] = useState(false);
   const [matchingFundsDetails, setMatchingFundsDetails] = useState<FundDetails[]>([]);
   const [isMatchingLoadingDetails, setIsMatchingLoadingDetails] = useState(false);
+
+  const { data: givingFundTokenAmount = 0 } = useScaffoldReadContract({
+    contractName: "GivingFundToken",
+    functionName: "balanceOf",
+    args: [address]
+  });
 
   const { data: bespokeFundTokenAddresses } = useScaffoldReadContract({
     contractName: "BespokeFundTokenFactory",
@@ -47,7 +54,7 @@ const Overview: NextPage = () => {
     args: [address]
   });
 
-   const { data: matchingFundTokenAddresses } = useScaffoldReadContract({
+  const { data: matchingFundTokenAddresses } = useScaffoldReadContract({
     contractName: "MatchingFundTokenFactory",
     functionName: "getUserFunds",
     args: [address]
@@ -74,8 +81,6 @@ const Overview: NextPage = () => {
             functionName: "getFundInfo",
             args: [fundAddress  as `0x${string}`]
           });
-
-          console.log(response);
 
           details.push({
             address: fundAddress,
@@ -119,8 +124,6 @@ const Overview: NextPage = () => {
             args: [fundAddress  as `0x${string}`]
           });
 
-          console.log(response);
-
           details.push({
             address: fundAddress,
             creator: address || "",
@@ -141,8 +144,6 @@ const Overview: NextPage = () => {
 
     fetchAllMatchingFundDetails();
   }, [matchingFundTokenAddresses, address]);
-
-  console.log(matchingFundsDetails);
 
   const receivedTokens: ReceivedToken[] = [
     {
@@ -304,11 +305,12 @@ const Overview: NextPage = () => {
             <div className="flex items-center space-x-4 mb-4 sm:mb-0">
               <div>
                 <h2 className="text-gray-600 text-sm mb-1">General Giving Fund</h2>
-                <p className="text-3xl font-semibold text-purple-600">$0</p>
+                <p className="text-3xl font-semibold text-purple-600">${givingFundTokenAmount.toString()}</p>
               </div>
               <Button
                 type="primary"
                 className="bg-purple-600 border-0 hover:bg-purple-700 rounded-full px-6"
+                onClick={() => setIsAddMoreModalOpen(true)}
               >
                 Add More
               </Button>
@@ -444,6 +446,12 @@ const Overview: NextPage = () => {
           </div>
         </div>
       </div>
+
+      <AddMoreFundsModal
+        userAddress={address}
+        isAddMoreModalOpen={isAddMoreModalOpen}
+        setIsAddMoreModalOpen={setIsAddMoreModalOpen}
+      />
 
       <BespokeGivingFundTokenModal
         isGivingModalOpen={isGivingModalOpen}
