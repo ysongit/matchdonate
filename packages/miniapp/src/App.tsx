@@ -2,6 +2,8 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useEffect } from "react";
 import { useAccount, useConnect, useSignMessage } from "wagmi";
 
+import OverviewLayout from "./pages/overview/layout";
+
 function App() {
   useEffect(() => {
     sdk.actions.ready();
@@ -10,6 +12,7 @@ function App() {
   return (
     <>
       <div className="text-2xl">Mini App + Vite + TS + React + Wagmi</div>
+      <OverviewLayout />
       <ConnectMenu />
     </>
   );
