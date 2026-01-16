@@ -1,5 +1,5 @@
 import { readContract, waitForTransactionReceipt } from "@wagmi/core";
-import { Button, Form, Input, Modal, Radio, Space } from "antd";
+import { Button, Form, Input, Modal, Radio, Space, message } from "antd";
 import { useConfig, useWriteContract } from "wagmi";
 import { parseUnits } from "viem";
 
@@ -19,10 +19,11 @@ export const AddMoreFundsModal = ({
   setIsAddMoreModalOpen,
 }: AddMoreFundsTokenProps) => {
   const [addMoreForm] = Form.useForm();
+  const [messageApi, contextHolder] = message.useMessage();
 
   const config = useConfig();
 
-  const { writeContract: writeYourContractAsync } = useWriteContract();
+  const { writeContract: writeYourContractAsync, error } = useWriteContract();
 
   async function getApproveAmount(): Promise<number> {
     // read from the chain to see if we have approved enough token
@@ -71,7 +72,7 @@ export const AddMoreFundsModal = ({
         const parseAmount = parseUnits(values.amount, 6);
 
         if (approvedAmount < parseAmount) {
-          const approvalHash = await writeYourContractAsync({
+          const approvalHash = writeYourContractAsync({
             abi: [
               {
                 inputs: [
@@ -125,6 +126,11 @@ export const AddMoreFundsModal = ({
       }
     });
   };
+
+  if (error) {
+    messageApi.destroy();
+    messageApi.error(`Error: ${error.message}`);
+  }
 
   return (
     <Modal
