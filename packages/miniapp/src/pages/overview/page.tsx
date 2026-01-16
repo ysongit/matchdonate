@@ -452,12 +452,14 @@ const Overview = () => {
       />
 
       <BespokeGivingFundTokenModal
+        givingFundTokenAmount={givingFundTokenAmount}
         contracts={contracts}
         isGivingModalOpen={isGivingModalOpen}
         setIsGivingModalOpen={setIsGivingModalOpen}
       />
 
       <MatchingFundTokenModal
+        givingFundTokenAmount={givingFundTokenAmount}
         contracts={contracts}
         isMatchingModalOpen={isMatchingModalOpen}
         setIsMatchingModalOpen={setIsMatchingModalOpen}
