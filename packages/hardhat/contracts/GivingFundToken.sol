@@ -79,6 +79,19 @@ contract GivingFundToken {
     }
 
     /**
+     * @dev Burn tokens from sender's balance
+     * To be fix
+     */
+    function burn(address sender, uint256 amount) public {
+        require(balanceOf[sender] >= amount, "Insufficient balance");
+
+        balanceOf[sender] -= amount;
+        totalSupply -= amount;
+
+        emit Transfer(sender, address(0), amount);
+    }
+
+    /**
      * @dev Owner burns GF tokens and sends USDC to recipient
      * @param recipient Address to send USDC to
      * @param amount Amount of tokens to burn and USDC to send

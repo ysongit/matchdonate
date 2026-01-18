@@ -19,7 +19,7 @@ export const AddMoreFundsModal = ({
   setIsAddMoreModalOpen,
 }: AddMoreFundsTokenProps) => {
   const [addMoreForm] = Form.useForm();
-  const [messageApi, contextHolder] = message.useMessage();
+  const [messageApi] = message.useMessage();
 
   const config = useConfig();
 

@@ -1,12 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-interface IGivingFundToken {
-    function transferFrom(address from, address to, uint256 amount) external returns (bool);
-    function transfer(address to, uint256 amount) external returns (bool);
-    function balanceOf(address account) external view returns (uint256);
-    function isApprovedNonprofit(address nonprofit) external view returns (bool);
-}
+import "./interface/IGivingFundToken.sol";
 
 /**
  * @title BespokeFundToken
@@ -21,6 +16,7 @@ contract BespokeFundToken {
     address public immutable owner; // The individual who created this fund
     address public immutable gfToken; // Giving Fund Token address
     address public immutable factory; // Factory contract address
+    bool private initialized; // Prevent multiple initial mints
     
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
@@ -32,6 +28,11 @@ contract BespokeFundToken {
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner");
+        _;
+    }
+
+    modifier onlyFactory() {
+        require(msg.sender == factory, "Only factory");
         _;
     }
 
@@ -49,19 +50,36 @@ contract BespokeFundToken {
     }
 
     /**
-     * @dev Mint bespoke tokens by depositing GF tokens (1:1)
-     * @param amount Amount of GF tokens to deposit
+     * @dev Initial mint called only once by factory during fund creation
+     * @param to Address to mint tokens to (fund owner)
+     * @param amount Amount to mint
+     */
+    function initialMint(address to, uint256 amount) external onlyFactory {
+        require(!initialized, "Already initialized");
+        require(amount > 0, "Amount must be > 0");
+        
+        initialized = true;
+        totalSupply = amount;
+        balanceOf[to] = amount;
+
+        emit Minted(to, amount);
+        emit Transfer(address(0), to, amount);
+    }
+
+    /**
+     * @dev Mint bespoke tokens by burning user's GF tokens and minting to fund
+     * @param amount Amount of GF tokens to burn and bespoke tokens to mint
      */
     function mint(uint256 amount) external {
         require(amount > 0, "Amount must be > 0");
 
-        // Transfer GF tokens from user to this contract
-        require(
-            IGivingFundToken(gfToken).transferFrom(msg.sender, address(this), amount),
-            "GF transfer failed"
-        );
+        // Burn GF tokens from user
+        IGivingFundToken(gfToken).burn(msg.sender, amount);
 
-        // Mint bespoke tokens
+        // Mint GF tokens to this contract to back the bespoke tokens
+        IGivingFundToken(gfToken).mint(address(this), amount);
+
+        // Mint bespoke tokens to user
         totalSupply += amount;
         balanceOf[msg.sender] += amount;
 
@@ -86,11 +104,11 @@ contract BespokeFundToken {
         balanceOf[msg.sender] -= amount;
         totalSupply -= amount;
 
-        // Transfer GF tokens to redeemer
-        require(
-            IGivingFundToken(gfToken).transfer(msg.sender, amount),
-            "GF transfer failed"
-        );
+        // Burn GF tokens from this contract
+        IGivingFundToken(gfToken).burn(address(this), amount);
+
+        // Mint GF tokens to redeemer
+        IGivingFundToken(gfToken).mint(msg.sender, amount);
 
         emit Redeemed(msg.sender, amount);
         emit Transfer(msg.sender, address(0), amount);

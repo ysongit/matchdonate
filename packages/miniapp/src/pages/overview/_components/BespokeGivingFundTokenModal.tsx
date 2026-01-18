@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Button, Form, Input, Modal, Select, InputNumber, Checkbox } from "antd";
+import { Button, Form, Input, Modal, Select, InputNumber, Checkbox, message } from "antd";
 import { useWriteContract } from "wagmi";
-import { formatUnits } from "viem";
+import { formatUnits, parseUnits } from "viem";
 
 type BespokeGivingFundTokenProps = {
   givingFundTokenAmount: bigint,
@@ -17,21 +17,25 @@ export const BespokeGivingFundTokenModal = ({
   setIsGivingModalOpen,
 }: BespokeGivingFundTokenProps) => {
   const [givingForm] = Form.useForm();
+  const [messageApi] = message.useMessage();
   
   const [amount, setAmount] = useState(0);
   const [fundingPercentage, setFundingPercentage] = useState(100);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string[]>([]);
 
-  const { writeContract: writeYourContractAsync } = useWriteContract();
+  const fundingRequired = (amount * fundingPercentage) / 100;
+
+  const { writeContract: writeYourContractAsync, error } = useWriteContract();
 
   const handleCreateGivingToken = () => {
     givingForm.validateFields().then(async (values) => {
       try {
+        console.log(parseUnits(amount?.toString(), 6), parseUnits(fundingRequired?.toString(), 6));
         writeYourContractAsync({
           address: contracts.BespokeFundTokenFactory.address,
           abi: contracts.BespokeFundTokenFactory.abi,
           functionName: "createFund",
-           args: [values.tokenName, values.tokenSymbol],
+          args: [values.tokenName, values.tokenSymbol, parseUnits(amount?.toString(), 6), parseUnits(fundingRequired.toString(), 6)],
         });
       } catch (e) {
         console.error("Error creating Bespoke Giving fund:", e);
@@ -58,7 +62,10 @@ export const BespokeGivingFundTokenModal = ({
     }
   };
 
-  const fundingRequired = (amount * fundingPercentage) / 100;
+  if (error) {
+    messageApi.destroy();
+    messageApi.error(`Error: ${error.message}`);
+  }
 
   return (
     <Modal
