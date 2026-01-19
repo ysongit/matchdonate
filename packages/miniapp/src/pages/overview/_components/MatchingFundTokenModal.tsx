@@ -87,47 +87,44 @@ export const MatchingFundTokenModal = ({ givingFundTokenAmount, contracts, isMat
           <Input placeholder="Enter token symbol" size="large" />
         </Form.Item>
 
-        <div className="flex">
-          <Form.Item
-            label={<span className="text-xl font-semibold">Amount</span>}
-            name="amount"
-            rules={[{ required: true, message: "Please enter amount" }]}
-          >
-            <InputNumber
-              size="large"
-              className="w-full text-xl font-semibold"
-              formatter={(value) =>
-                `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-              }
-              onChange={handleAmountChange}
-              value={amount}
-              min={0}
-            />
-          </Form.Item>
+        <Form.Item
+          label={<span className="text-xl font-semibold">Amount</span>}
+          name="amount"
+          rules={[{ required: true, message: "Please enter amount" }]}
+        >
+          <InputNumber
+            size="large"
+            className="w-full text-xl font-semibold"
+            formatter={(value) =>
+              `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+            }
+            onChange={handleAmountChange}
+            value={amount}
+            min={0}
+          />
+        </Form.Item>
 
-          <Form.Item
-            label={<span className="text-xl font-semibold">Funding Percentage</span>}
-            name="fundingPercentage"
-          >
-            <div>
-              <Select
-                defaultValue={100}
-                size="large"
-                className="w-full mb-2"
-                onChange={handlePercentageChange}
-                options={[
-                  { value: 25, label: "25%" },
-                  { value: 50, label: "50%" },
-                  { value: 75, label: "75%" },
-                  { value: 100, label: "100%" },
-                ]}
-              />
-            </div>
-            <div className="text-gray-500 text-base">
-              Funding Required: ${fundingRequired.toLocaleString()}
-            </div>
-          </Form.Item>
-        </div>
+        <Form.Item
+          label={<span className="text-xl font-semibold">Funding Percentage</span>}
+          name="fundingPercentage"
+        >
+          <div>
+            <Select
+              defaultValue={100}
+              size="large"
+              className="w-full mb-2"
+              onChange={handlePercentageChange}
+              options={[
+                { value: 50, label: "50%" },
+                { value: 75, label: "75%" },
+                { value: 100, label: "100%" },
+              ]}
+            />
+          </div>
+          <div className="text-gray-500 text-base">
+            Funding Required: ${fundingRequired.toLocaleString()}
+          </div>
+        </Form.Item>
 
         <Form.Item
           label={<span className="text-xl font-semibold">Nonprofit Recipients</span>}

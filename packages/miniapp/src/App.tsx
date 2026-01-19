@@ -1,7 +1,9 @@
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useEffect } from "react";
+import { ConfigProvider } from "antd";
 import { useAccount, useConnect, useSignMessage } from "wagmi";
 
+import { themeConfig } from "./utils/themeConfig";
 import OverviewLayout from "./pages/overview/layout";
 
 function App() {
@@ -10,11 +12,10 @@ function App() {
   }, []);
 
   return (
-    <>
-      <div className="text-2xl">Mini App + Vite + TS + React + Wagmi</div>
+    <ConfigProvider theme={themeConfig}>
       <OverviewLayout />
       <ConnectMenu />
-    </>
+    </ConfigProvider>
   );
 }
 
