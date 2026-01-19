@@ -6,6 +6,7 @@ import { useAccount, useChainId, useConfig, useReadContract } from "wagmi";
 import { formatUnits } from "viem";
 import { CalendarIcon, EllipsisVerticalIcon } from "@heroicons/react/24/outline";
 import deployedContracts from "../../contracts/deployedContracts";
+import { calculatePercentageFunded } from "../../utils/calculatePercentageFunded";
 
 interface ReceivedToken {
   name: string;
@@ -22,6 +23,8 @@ interface FundDetails {
   symbol: string;
   createdAt: bigint;
   exists: boolean;
+  availableTokens: bigint;
+  percentageFunded: string;
 }
 
 const Overview = () => {
@@ -75,13 +78,38 @@ const Overview = () => {
 
         for (const fundAddress of bespokeFundTokenAddresses) {
           const response = await readContract(config, {
-            // @ts-ignore
             abi: deployedContracts[chainId].BespokeFundTokenFactory.abi,
-            // @ts-ignore
             address: deployedContracts[chainId].BespokeFundTokenFactory.address as `0x${string}`,
             functionName: "getFundInfo",
             args: [fundAddress as `0x${string}`],
           });
+
+           const availableTokens = await readContract(config, {
+            abi: [{
+              inputs: [],
+              name: "totalSupply",
+              outputs: [
+                {
+                  internalType: "uint256",
+                  name: "",
+                  type: "uint256",
+                },
+              ],
+              stateMutability: "view",
+              type: "function",
+            }],
+            address: fundAddress as `0x${string}`,
+            functionName: "totalSupply",
+          });
+
+          const fundedGFT = await readContract(config, {
+            abi: deployedContracts[chainId].GivingFundToken.abi,
+            address: deployedContracts[chainId].GivingFundToken.address as `0x${string}`,
+            functionName: "balanceOf",
+            args: [fundAddress as `0x${string}`],
+          });
+
+          console.log(fundedGFT, );
 
           details.push({
             address: fundAddress,
@@ -90,6 +118,8 @@ const Overview = () => {
             symbol: response[2],
             createdAt: response[3],
             exists: true,
+            availableTokens: availableTokens,
+            percentageFunded: calculatePercentageFunded(fundedGFT, availableTokens),
           });
         }
 
@@ -117,9 +147,7 @@ const Overview = () => {
 
         for (const fundAddress of matchingFundTokenAddresses) {
           const response = await readContract(config, {
-            // @ts-ignore
             abi: deployedContracts[chainId].MatchingFundTokenFactory.abi,
-            // @ts-ignore
             address: deployedContracts[chainId].MatchingFundTokenFactory.address as `0x${string}`,
             functionName: "getFundInfo",
             args: [fundAddress as `0x${string}`],
@@ -132,6 +160,8 @@ const Overview = () => {
             symbol: response[2],
             createdAt: response[3],
             exists: true,
+            availableTokens: 0n,
+            percentageFunded: "0"
           });
         }
 
@@ -174,13 +204,13 @@ const Overview = () => {
       title: "Available Tokens",
       dataIndex: "availableTokens",
       key: "availableTokens",
-      render: (val: number) => `$${0}`,
+      render: (val: bigint) => `$${formatUnits(val, 6)}`,
     },
     {
       title: "Percentage Funded",
       dataIndex: "percentageFunded",
       key: "percentageFunded",
-      render: (val: number) => `${0}%`,
+      render: (val: number) => `${val}%`,
     },
     {
       title: "Donated Amount",
@@ -207,13 +237,13 @@ const Overview = () => {
       title: "Available Tokens",
       dataIndex: "availableTokens",
       key: "availableTokens",
-      render: (val: number) => `$${0}`,
+      render: (val: number) => `$${val}`,
     },
     {
       title: "Percentage Funded",
       dataIndex: "percentageFunded",
       key: "percentageFunded",
-      render: (val: number) => `${0}%`,
+      render: (val: number) => `${val}%`,
     },
     {
       title: "Donated Amount",
