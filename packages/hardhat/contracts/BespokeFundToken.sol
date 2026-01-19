@@ -74,10 +74,16 @@ contract BespokeFundToken {
         require(amount > 0, "Amount must be > 0");
 
         // Burn GF tokens from user
-        IGivingFundToken(gfToken).burn(msg.sender, amount);
+        require(
+            IGivingFundToken(gfToken).burn(msg.sender, amount),
+            "GF burn failed"
+        );
 
         // Mint GF tokens to this contract to back the bespoke tokens
-        IGivingFundToken(gfToken).mint(address(this), amount);
+        require(
+            IGivingFundToken(gfToken).mintTo(address(this), amount),
+            "GF mint failed"
+        );
 
         // Mint bespoke tokens to user
         totalSupply += amount;
@@ -105,10 +111,16 @@ contract BespokeFundToken {
         totalSupply -= amount;
 
         // Burn GF tokens from this contract
-        IGivingFundToken(gfToken).burn(address(this), amount);
+        require(
+            IGivingFundToken(gfToken).burn(address(this), amount),
+            "GF burn failed"
+        );
 
         // Mint GF tokens to redeemer
-        IGivingFundToken(gfToken).mint(msg.sender, amount);
+        require(
+            IGivingFundToken(gfToken).mintTo(msg.sender, amount),
+            "GF mint failed"
+        );
 
         emit Redeemed(msg.sender, amount);
         emit Transfer(msg.sender, address(0), amount);

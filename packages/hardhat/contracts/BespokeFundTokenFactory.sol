@@ -61,8 +61,8 @@ contract BespokeFundTokenFactory {
      * @dev Create a new bespoke fund token with initial mint
      * @param name Token name (e.g., "Alice's Education Fund")
      * @param symbol Token symbol (e.g., "ALEF")
-     * @param initialAmount Amount of bespoke tokens to mint
-     * @param fundAmount Amount of GF tokens to burn and mint to bespoke token contract
+     * @param initialAmount Amount of bespoke tokens to mint to creator
+     * @param fundAmount Amount of GF tokens to burn from creator and mint to bespoke fund
      */
     function createFund(
         string memory name,
@@ -76,7 +76,10 @@ contract BespokeFundTokenFactory {
         require(fundAmount <= IGivingFundToken(gfToken).balanceOf(msg.sender), "Not enough GF tokens");
 
         // Burn GF tokens from the creator
-        IGivingFundToken(gfToken).burn(msg.sender, fundAmount);
+        require(
+            IGivingFundToken(gfToken).burn(msg.sender, fundAmount),
+            "GF burn failed"
+        );
 
         // Deploy new bespoke fund token
         BespokeFundToken newFund = new BespokeFundToken(
@@ -89,7 +92,10 @@ contract BespokeFundTokenFactory {
         address fundAddress = address(newFund);
 
         // Mint GF tokens to the new fund contract to back the bespoke tokens
-        IGivingFundToken(gfToken).mint(fundAddress, fundAmount);
+        require(
+            IGivingFundToken(gfToken).mintTo(fundAddress, fundAmount),
+            "GF mint failed"
+        );
 
         // Mint initial bespoke tokens to the creator
         newFund.initialMint(msg.sender, initialAmount);
@@ -108,7 +114,7 @@ contract BespokeFundTokenFactory {
             exists: true
         });
 
-        emit FundCreated(msg.sender, fundAddress, name, symbol, initialAmount, fundAmount,block.timestamp);
+        emit FundCreated(msg.sender, fundAddress, name, symbol, initialAmount, fundAmount, block.timestamp);
 
         return fundAddress;
     }

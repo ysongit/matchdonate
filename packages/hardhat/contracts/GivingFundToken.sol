@@ -26,6 +26,7 @@ contract GivingFundToken {
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
     mapping(address => bool) public approvedNonprofits;
+    mapping(address => bool) public authorizedMinters; // Contracts authorized to mint/burn
 
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
@@ -36,9 +37,16 @@ contract GivingFundToken {
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event NonprofitApproved(address indexed nonprofit);
     event NonprofitRevoked(address indexed nonprofit);
+    event MinterAuthorized(address indexed minter);
+    event MinterRevoked(address indexed minter);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner can call this");
+        _;
+    }
+
+    modifier onlyAuthorized() {
+        require(authorizedMinters[msg.sender] || msg.sender == owner, "Not authorized");
         _;
     }
 
@@ -79,16 +87,36 @@ contract GivingFundToken {
     }
 
     /**
-     * @dev Burn tokens from sender's balance
-     * To be fix
+     * @dev Mint tokens to a specific address - only authorized contracts
+     * @param to Address to mint tokens to
+     * @param amount Amount to mint
      */
-    function burn(address sender, uint256 amount) public {
+    function mintTo(address to, uint256 amount) external onlyAuthorized returns (bool) {
+        require(to != address(0), "Cannot mint to zero address");
+        require(amount > 0, "Amount must be greater than 0");
+
+        totalSupply += amount;
+        balanceOf[to] += amount;
+
+        emit Minted(to, amount);
+        emit Transfer(address(0), to, amount);
+        return true;
+    }
+
+    /**
+     * @dev Burn tokens from sender's balance - can be called by authorized contracts
+     * @param sender Address to burn from
+     * @param amount Amount to burn
+     */
+    function burn(address sender, uint256 amount) public onlyAuthorized returns (bool) {
         require(balanceOf[sender] >= amount, "Insufficient balance");
+        require(amount > 0, "Amount must be greater than 0");
 
         balanceOf[sender] -= amount;
         totalSupply -= amount;
 
         emit Transfer(sender, address(0), amount);
+        return true;
     }
 
     /**
@@ -162,6 +190,37 @@ contract GivingFundToken {
 
         emit Transfer(from, to, amount);
         return true;
+    }
+
+    /**
+     * @dev Authorize a contract to mint and burn tokens
+     * @param minter Address to authorize
+     */
+    function authorizeMinter(address minter) external onlyOwner {
+        require(minter != address(0), "Cannot authorize zero address");
+        require(!authorizedMinters[minter], "Already authorized");
+        
+        authorizedMinters[minter] = true;
+        emit MinterAuthorized(minter);
+    }
+
+    /**
+     * @dev Revoke minter authorization
+     * @param minter Address to revoke
+     */
+    function revokeMinter(address minter) external onlyOwner {
+        require(authorizedMinters[minter], "Not authorized");
+        
+        authorizedMinters[minter] = false;
+        emit MinterRevoked(minter);
+    }
+
+    /**
+     * @dev Check if address is authorized minter
+     * @param minter Address to check
+     */
+    function isAuthorizedMinter(address minter) external view returns (bool) {
+        return authorizedMinters[minter];
     }
 
     /**
