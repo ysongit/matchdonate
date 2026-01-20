@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button, DatePicker, Form, Input, Modal, Select, InputNumber, Checkbox } from "antd";
 import { useWriteContract } from "wagmi";
-import { formatUnits } from "viem";
+import { formatUnits, parseUnits } from "viem";
 
 type MatchingFundTokeProps = {
   givingFundTokenAmount: bigint,
@@ -17,6 +17,8 @@ export const MatchingFundTokenModal = ({ givingFundTokenAmount, contracts, isMat
   const [fundingPercentage, setFundingPercentage] = useState(100);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string[]>([]);
 
+  const fundingRequired = (amount * fundingPercentage) / 100;
+
   const { writeContract: writeYourContractAsync } = useWriteContract();
 
   const handleCreateMatchingToken = () => {
@@ -29,7 +31,7 @@ export const MatchingFundTokenModal = ({ givingFundTokenAmount, contracts, isMat
           address: contracts.MatchingFundTokenFactory.address,
           abi: contracts.MatchingFundTokenFactory.abi,
           functionName: "createFund",
-          args: [values.tokenName, values.tokenSymbol, BigInt(timestamp)],
+          args: [values.tokenName, values.tokenSymbol,  parseUnits(amount?.toString(), 6), parseUnits(fundingRequired.toString(), 6), BigInt(timestamp)],
         });
 
         console.log("Creating Matching Token:", values, timestamp);
@@ -52,8 +54,6 @@ export const MatchingFundTokenModal = ({ givingFundTokenAmount, contracts, isMat
       setFundingPercentage(value);
     }
   };
-
-  const fundingRequired = (amount * fundingPercentage) / 100;
 
   return (
     <Modal

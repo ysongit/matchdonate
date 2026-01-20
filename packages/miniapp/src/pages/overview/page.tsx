@@ -84,7 +84,7 @@ const Overview = () => {
             args: [fundAddress as `0x${string}`],
           });
 
-           const availableTokens = await readContract(config, {
+          const availableTokens = await readContract(config, {
             abi: [{
               inputs: [],
               name: "totalSupply",
@@ -108,8 +108,6 @@ const Overview = () => {
             functionName: "balanceOf",
             args: [fundAddress as `0x${string}`],
           });
-
-          console.log(fundedGFT, );
 
           details.push({
             address: fundAddress,
@@ -153,6 +151,31 @@ const Overview = () => {
             args: [fundAddress as `0x${string}`],
           });
 
+           const availableTokens = await readContract(config, {
+            abi: [{
+              inputs: [],
+              name: "totalSupply",
+              outputs: [
+                {
+                  internalType: "uint256",
+                  name: "",
+                  type: "uint256",
+                },
+              ],
+              stateMutability: "view",
+              type: "function",
+            }],
+            address: fundAddress as `0x${string}`,
+            functionName: "totalSupply",
+          });
+
+          const fundedGFT = await readContract(config, {
+            abi: deployedContracts[chainId].GivingFundToken.abi,
+            address: deployedContracts[chainId].GivingFundToken.address as `0x${string}`,
+            functionName: "balanceOf",
+            args: [fundAddress as `0x${string}`],
+          });
+
           details.push({
             address: fundAddress,
             creator: address || "",
@@ -160,8 +183,8 @@ const Overview = () => {
             symbol: response[2],
             createdAt: response[3],
             exists: true,
-            availableTokens: 0n,
-            percentageFunded: "0"
+            availableTokens: availableTokens,
+            percentageFunded: calculatePercentageFunded(fundedGFT, availableTokens),
           });
         }
 
@@ -237,7 +260,7 @@ const Overview = () => {
       title: "Available Tokens",
       dataIndex: "availableTokens",
       key: "availableTokens",
-      render: (val: number) => `$${val}`,
+      render: (val: bigint) => `$${formatUnits(val, 6)}`,
     },
     {
       title: "Percentage Funded",

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "./MatchingFundToken.sol";
+import "./interface/IGivingFundToken.sol";
 
 /**
  * @title MatchingFundTokenFactory
@@ -33,6 +34,7 @@ contract MatchingFundTokenFactory {
         address indexed fundAddress,
         string name,
         string symbol,
+        uint256 initialAmount,
         uint256 expirationDate,
         uint256 timestamp
     );
@@ -60,16 +62,27 @@ contract MatchingFundTokenFactory {
      * @dev Create a new matching fund token with expiration
      * @param name Token name (e.g., "Bob's Matching Campaign 2024")
      * @param symbol Token symbol (e.g., "BMC24")
+     * @param initialAmount Amount of matching fund tokens to mint to creator
+     * @param fundAmount Amount of GF tokens to burn from creator and mint to matching fund
      * @param expirationDate Unix timestamp when fund expires
      */
     function createFund(
         string memory name,
         string memory symbol,
+        uint256 initialAmount,
+        uint256 fundAmount,
         uint256 expirationDate
     ) external whenNotPaused returns (address) {
         require(bytes(name).length > 0, "Name required");
         require(bytes(symbol).length > 0, "Symbol required");
+        require(initialAmount > 0, "Initial amount must be > 0");
         require(expirationDate > block.timestamp, "Expiration must be in future");
+
+        // Burn GF tokens from the creator
+        require(
+            IGivingFundToken(gfToken).burn(msg.sender, fundAmount),
+            "GF burn failed"
+        );
 
         // Deploy new matching fund token
         MatchingFundToken newFund = new MatchingFundToken(
@@ -77,10 +90,17 @@ contract MatchingFundTokenFactory {
             symbol,
             msg.sender,
             gfToken,
-            expirationDate
+            expirationDate,
+            initialAmount
         );
 
         address fundAddress = address(newFund);
+
+        // Mint GF tokens to the new fund contract to back the matching tokens
+        require(
+            IGivingFundToken(gfToken).mintTo(fundAddress, fundAmount),
+            "GF mint failed"
+        );
 
         // Track the fund
         userFunds[msg.sender].push(fundAddress);
@@ -97,7 +117,7 @@ contract MatchingFundTokenFactory {
             exists: true
         });
 
-        emit FundCreated(msg.sender, fundAddress, name, symbol, expirationDate, block.timestamp);
+        emit FundCreated(msg.sender, fundAddress, name, symbol, initialAmount, expirationDate, block.timestamp);
 
         return fundAddress;
     }

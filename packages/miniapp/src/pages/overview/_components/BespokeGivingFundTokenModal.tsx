@@ -30,7 +30,6 @@ export const BespokeGivingFundTokenModal = ({
   const handleCreateGivingToken = () => {
     givingForm.validateFields().then(async (values) => {
       try {
-        console.log(parseUnits(amount?.toString(), 6), parseUnits(fundingRequired?.toString(), 6));
         writeYourContractAsync({
           address: contracts.BespokeFundTokenFactory.address,
           abi: contracts.BespokeFundTokenFactory.abi,

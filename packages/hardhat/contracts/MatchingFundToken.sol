@@ -2,13 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "./MatchingFundTokenFactory.sol";
-
-interface IGivingFundToken {
-    function transferFrom(address from, address to, uint256 amount) external returns (bool);
-    function transfer(address to, uint256 amount) external returns (bool);
-    function balanceOf(address account) external view returns (uint256);
-    function isApprovedNonprofit(address nonprofit) external view returns (bool);
-}
+import "./interface/IGivingFundToken.sol";
 
 /**
  * @title MatchingFundToken
@@ -61,7 +55,8 @@ contract MatchingFundToken {
         string memory _symbol,
         address _owner,
         address _gfToken,
-        uint256 _expirationDate
+        uint256 _expirationDate,
+        uint256 amount
     ) {
         require(_expirationDate > block.timestamp, "Expiration must be in future");
         
@@ -71,22 +66,33 @@ contract MatchingFundToken {
         gfToken = _gfToken;
         factory = msg.sender;
         expirationDate = _expirationDate;
+
+        totalSupply = amount;
+        balanceOf[_owner] = amount;
+
+        emit Minted(_owner, amount);
     }
 
     /**
-     * @dev Mint matching fund tokens by depositing GF tokens (1:1)
-     * @param amount Amount of GF tokens to deposit
+     * @dev Mint matching tokens by burning user's GF tokens and minting to fund
+     * @param amount Amount of GF tokens to burn and matching tokens to mint
      */
     function mint(uint256 amount) external whenFactoryNotPaused {
         require(amount > 0, "Amount must be > 0");
 
-        // Transfer GF tokens from user to this contract
+        // Burn GF tokens from user
         require(
-            IGivingFundToken(gfToken).transferFrom(msg.sender, address(this), amount),
-            "GF transfer failed"
+            IGivingFundToken(gfToken).burn(msg.sender, amount),
+            "GF burn failed"
         );
 
-        // Mint matching fund tokens
+        // Mint GF tokens to this contract to back the bespoke tokens
+        require(
+            IGivingFundToken(gfToken).mintTo(address(this), amount),
+            "GF mint failed"
+        );
+
+        // Mint matching tokens to user
         totalSupply += amount;
         balanceOf[msg.sender] += amount;
 
@@ -112,10 +118,16 @@ contract MatchingFundToken {
         balanceOf[msg.sender] -= amount;
         totalSupply -= amount;
 
-        // Transfer GF tokens to redeemer
+        // Burn GF tokens from this contract
         require(
-            IGivingFundToken(gfToken).transfer(msg.sender, amount),
-            "GF transfer failed"
+            IGivingFundToken(gfToken).burn(address(this), amount),
+            "GF burn failed"
+        );
+
+        // Mint GF tokens to redeemer
+        require(
+            IGivingFundToken(gfToken).mintTo(msg.sender, amount),
+            "GF mint failed"
         );
 
         emit Redeemed(msg.sender, amount);
@@ -130,10 +142,16 @@ contract MatchingFundToken {
         uint256 gfBalance = IGivingFundToken(gfToken).balanceOf(address(this));
         require(gfBalance > 0, "No funds to reclaim");
 
-        // Transfer all remaining GF tokens back to owner
+         // Burn GF tokens from this contract
         require(
-            IGivingFundToken(gfToken).transfer(owner, gfBalance),
-            "GF transfer failed"
+            IGivingFundToken(gfToken).burn(address(this), gfBalance),
+            "GF burn failed"
+        );
+
+        // Mint GF tokens to redeemer
+        require(
+            IGivingFundToken(gfToken).mintTo(msg.sender, gfBalance),
+            "GF mint failed"
         );
 
         emit FundsReclaimed(owner, gfBalance);
