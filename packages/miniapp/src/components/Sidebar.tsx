@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowDownLeftIcon,
   ArrowPathIcon,
@@ -23,6 +24,8 @@ interface MenuItem {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentPage }) => {
+  const router = useNavigate();
+
   const menuItems: MenuItem[] = [
     {
       id: "overview",
@@ -30,7 +33,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage }) => {
       icon: <EyeIcon className="w-5 h-5" />,
     },
     {
-      id: "my-giving-fund",
+      id: "mygivingfund",
       label: "My Giving Fund",
       icon: <UserIcon className="w-5 h-5" />,
     },
@@ -85,6 +88,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage }) => {
                     : "text-gray-400 hover:bg-purple-50 hover:text-purple-500"
                 }
               `}
+              onClick={() => router(`/${item.id}`)}
             >
               <span className={isActive ? "text-white" : "text-purple-400 group-hover:text-purple-500"}>
                 {item.icon}
