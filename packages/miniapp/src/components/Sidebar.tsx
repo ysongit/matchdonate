@@ -1,4 +1,5 @@
 import React from "react";
+import { usePrivy } from '@privy-io/react-auth';
 import { useNavigate } from "react-router-dom";
 import {
   ArrowDownLeftIcon,
@@ -25,6 +26,8 @@ interface MenuItem {
 
 const Sidebar: React.FC<SidebarProps> = ({ currentPage }) => {
   const router = useNavigate();
+
+  const { logout } = usePrivy();
 
   const menuItems: MenuItem[] = [
     {
@@ -108,6 +111,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage }) => {
           className="w-full flex items-center gap-3 px-5 py-3.5 rounded-full
             text-gray-400 hover:bg-purple-50 hover:text-purple-500
             transition-all duration-200 text-left group mt-6"
+          onClick={() => logout()}
         >
           <span className="text-purple-400 group-hover:text-purple-500">
             <ArrowDownLeftIcon className="w-5 h-5" />

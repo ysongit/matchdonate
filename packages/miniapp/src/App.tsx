@@ -7,6 +7,7 @@ import { useAccount, useConnect, useSignMessage } from "wagmi";
 import { themeConfig } from "./utils/themeConfig";
 import OverviewLayout from "./pages/overview/layout";
 import MyGivingFundLayout from "./pages/mygivingfund/layout";
+import Home from "./pages/Home";
 
 function App() {
   useEffect(() => {
@@ -25,7 +26,7 @@ function App() {
             element={<OverviewLayout />} />
           <Route
             path="/"
-            element={<h1>Home</h1>} />
+            element={<Home />} />
         </Routes>
       </HashRouter>
       <ConnectMenu />
