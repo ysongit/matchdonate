@@ -1,7 +1,7 @@
 import { readContract, waitForTransactionReceipt } from "@wagmi/core";
 import { Button, Form, Input, Modal, Radio, Space, message } from "antd";
-import { useConfig, useWriteContract } from "wagmi";
-import { parseUnits } from "viem";
+import { useConfig, useReadContract, useWriteContract } from "wagmi";
+import { formatUnits, parseUnits } from "viem";
 
 type AddMoreFundsTokenProps = {
   contracts: any,
@@ -23,7 +23,32 @@ export const AddMoreFundsModal = ({
 
   const config = useConfig();
 
-  const { writeContract: writeYourContractAsync, error } = useWriteContract();
+  const { data: usdcAmount = 0n } = useReadContract({
+    address: USDC_ADDRESS,
+    abi: [{
+      inputs: [
+        {
+          internalType: "address",
+          name: "",
+          type: "address",
+        },
+      ],
+      name: "balanceOf",
+      outputs: [
+        {
+          internalType: "uint256",
+          name: "",
+          type: "uint256",
+        },
+      ],
+      stateMutability: "view",
+      type: "function",
+    },],
+    functionName: 'balanceOf',
+    args: [userAddress as `0x${string}`],
+  }) as { data: bigint };
+
+  const { writeContractAsync, error } = useWriteContract();
 
   async function getApproveAmount(): Promise<number> {
     // read from the chain to see if we have approved enough token
@@ -72,7 +97,8 @@ export const AddMoreFundsModal = ({
         const parseAmount = parseUnits(values.amount, 6);
 
         if (approvedAmount < parseAmount) {
-          const approvalHash = writeYourContractAsync({
+          // Await the approval hash first
+          const approvalHash = await writeContractAsync({
             abi: [
               {
                 inputs: [
@@ -101,17 +127,18 @@ export const AddMoreFundsModal = ({
             ],
             address: USDC_ADDRESS as `0x${string}`,
             functionName: "approve",
-            // @ts-ignore
             args: [contracts.GivingFundToken.address as `0x${string}`, BigInt(parseAmount)],
           });
 
+          // Now wait for the approval transaction to be confirmed
           const approvalReceipt = await waitForTransactionReceipt(config, {
             hash: approvalHash,
           });
           console.log("Approval confirmed", approvalReceipt);
         }
 
-        writeYourContractAsync({
+        // Now proceed with the mint transaction
+        await writeContractAsync({
           address: contracts.GivingFundToken.address,
           abi: contracts.GivingFundToken.abi,
           functionName: "mint",
@@ -167,7 +194,7 @@ export const AddMoreFundsModal = ({
               </div>
               <div className="border border-gray-200 rounded-lg p-4 hover:border-purple-300 transition-colors">
                 <Radio value="digital-wallet">
-                  <span className="text-gray-600">Digital Wallet</span>
+                  <span className="text-gray-600">Digital Wallet (${formatUnits(usdcAmount, 6)} USDC)</span>
                 </Radio>
               </div>
             </Space>
