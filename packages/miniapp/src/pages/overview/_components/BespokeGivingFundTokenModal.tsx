@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Button, Form, Input, Modal, Select, InputNumber, Checkbox, message } from "antd";
 import { useWriteContract } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
+import { writeContract as writeContractviem } from 'viem/actions';
+import { useSmartWallets } from '@privy-io/react-auth/smart-wallets';
 
 type BespokeGivingFundTokenProps = {
   givingFundTokenAmount: bigint,
@@ -16,6 +18,7 @@ export const BespokeGivingFundTokenModal = ({
   isGivingModalOpen,
   setIsGivingModalOpen,
 }: BespokeGivingFundTokenProps) => {
+  const { client } = useSmartWallets();
   const [givingForm] = Form.useForm();
   const [messageApi] = message.useMessage();
   
@@ -30,12 +33,21 @@ export const BespokeGivingFundTokenModal = ({
   const handleCreateGivingToken = () => {
     givingForm.validateFields().then(async (values) => {
       try {
-        writeYourContractAsync({
-          address: contracts.BespokeFundTokenFactory.address,
-          abi: contracts.BespokeFundTokenFactory.abi,
-          functionName: "createFund",
-          args: [values.tokenName, values.tokenSymbol, parseUnits(amount?.toString(), 6), parseUnits(fundingRequired.toString(), 6)],
-        });
+        if (client) {
+          await writeContractviem(client, {
+            address: contracts.BespokeFundTokenFactory.address,
+            abi: contracts.BespokeFundTokenFactory.abi,
+            functionName: "createFund",
+            args: [values.tokenName, values.tokenSymbol, parseUnits(amount?.toString(), 6), parseUnits(fundingRequired.toString(), 6)],
+          });
+        } else {
+          writeYourContractAsync({
+            address: contracts.BespokeFundTokenFactory.address,
+            abi: contracts.BespokeFundTokenFactory.abi,
+            functionName: "createFund",
+            args: [values.tokenName, values.tokenSymbol, parseUnits(amount?.toString(), 6), parseUnits(fundingRequired.toString(), 6)],
+          });
+        }
       } catch (e) {
         console.error("Error creating Bespoke Giving fund:", e);
       }
