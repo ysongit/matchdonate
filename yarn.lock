@@ -6528,6 +6528,7 @@ __metadata:
     "@wagmi/cli": latest
     "@wagmi/core": ^3.2.2
     antd: ^6.2.0
+    permissionless: ^0.3.4
     react: ^18.3.1
     react-dom: ^18.3.1
     react-router-dom: ^7.12.0
@@ -20939,6 +20940,19 @@ __metadata:
   version: 1.2.0
   resolution: "pend@npm:1.2.0"
   checksum: 6c72f5243303d9c60bd98e6446ba7d30ae29e3d56fdb6fae8767e8ba6386f33ee284c97efe3230a0d0217e2b1723b8ab490b1bbf34fcbb2180dbc8a9de47850d
+  languageName: node
+  linkType: hard
+
+"permissionless@npm:^0.3.4":
+  version: 0.3.4
+  resolution: "permissionless@npm:0.3.4"
+  peerDependencies:
+    ox: ^0.11.3
+    viem: ^2.44.4
+  peerDependenciesMeta:
+    ox:
+      optional: true
+  checksum: 890f22c383757db774e6f76c2e28952115568d5c536f612cfccbc63b3974cd1a5b5a6d47c5d06677e19ea4ccdf6f791980856b49565bd1956fa684773b92a679
   languageName: node
   linkType: hard
 

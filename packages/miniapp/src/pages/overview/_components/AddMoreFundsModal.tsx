@@ -2,6 +2,8 @@ import { readContract, waitForTransactionReceipt } from "@wagmi/core";
 import { Button, Form, Input, Modal, Radio, Space, message } from "antd";
 import { useConfig, useReadContract, useWriteContract } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
+import { writeContract as writeContractviem } from 'viem/actions';
+import { useSmartWallets } from '@privy-io/react-auth/smart-wallets';
 
 type AddMoreFundsTokenProps = {
   contracts: any,
@@ -12,12 +14,38 @@ type AddMoreFundsTokenProps = {
 
 const USDC_ADDRESS = import.meta.env.VITE_USDC_ADDRESS;
 
+const approve_ABI =  {
+  inputs: [
+    {
+      internalType: "address",
+      name: "spender",
+      type: "address",
+    },
+    {
+      internalType: "uint256",
+      name: "amount",
+      type: "uint256",
+    },
+  ],
+  name: "approve",
+  outputs: [
+    {
+      internalType: "bool",
+      name: "",
+      type: "bool",
+    },
+  ],
+  stateMutability: "nonpayable",
+  type: "function",
+}
+
 export const AddMoreFundsModal = ({
   contracts,
   userAddress,
   isAddMoreModalOpen,
   setIsAddMoreModalOpen,
 }: AddMoreFundsTokenProps) => {
+  const { client } = useSmartWallets();
   const [addMoreForm] = Form.useForm();
   const [messageApi] = message.useMessage();
 
@@ -97,54 +125,53 @@ export const AddMoreFundsModal = ({
         const parseAmount = parseUnits(values.amount, 6);
 
         if (approvedAmount < parseAmount) {
-          // Await the approval hash first
-          const approvalHash = await writeContractAsync({
-            abi: [
-              {
-                inputs: [
-                  {
-                    internalType: "address",
-                    name: "spender",
-                    type: "address",
-                  },
-                  {
-                    internalType: "uint256",
-                    name: "amount",
-                    type: "uint256",
-                  },
-                ],
-                name: "approve",
-                outputs: [
-                  {
-                    internalType: "bool",
-                    name: "",
-                    type: "bool",
-                  },
-                ],
-                stateMutability: "nonpayable",
-                type: "function",
-              },
-            ],
-            address: USDC_ADDRESS as `0x${string}`,
-            functionName: "approve",
-            args: [contracts.GivingFundToken.address as `0x${string}`, BigInt(parseAmount)],
-          });
+          if (client) {
+            const approvalHash = await writeContractviem(client, {
+              abi: [approve_ABI],
+              address: USDC_ADDRESS as `0x${string}`,
+              functionName: "approve",
+              args: [contracts.GivingFundToken.address as `0x${string}`, BigInt(parseAmount)],
+            });
 
-          // Now wait for the approval transaction to be confirmed
-          const approvalReceipt = await waitForTransactionReceipt(config, {
-            hash: approvalHash,
-          });
-          console.log("Approval confirmed", approvalReceipt);
+            const approvalReceipt = await waitForTransactionReceipt(config, {
+              hash: approvalHash,
+            });
+            console.log("Approval confirmed", approvalReceipt);
+          }
+          else {
+            // Await the approval hash first
+            const approvalHash = await writeContractAsync({
+              abi: [approve_ABI],
+              address: USDC_ADDRESS as `0x${string}`,
+              functionName: "approve",
+              args: [contracts.GivingFundToken.address as `0x${string}`, BigInt(parseAmount)],
+            });
+
+            // Now wait for the approval transaction to be confirmed
+            const approvalReceipt = await waitForTransactionReceipt(config, {
+              hash: approvalHash,
+            });
+            console.log("Approval confirmed", approvalReceipt);
+          }
         }
 
-        // Now proceed with the mint transaction
-        await writeContractAsync({
-          address: contracts.GivingFundToken.address,
-          abi: contracts.GivingFundToken.abi,
-          functionName: "mint",
-          args: [parseAmount],
-        });
-
+        if (client) {
+          await writeContractviem(client, {
+            address: contracts.GivingFundToken.address,
+            abi: contracts.GivingFundToken.abi,
+            functionName: "mint",
+            args: [parseAmount],
+          });
+        } else {
+          // Now proceed with the mint transaction
+          await writeContractAsync({
+            address: contracts.GivingFundToken.address,
+            abi: contracts.GivingFundToken.abi,
+            functionName: "mint",
+            args: [parseAmount],
+          });
+        }
+       
         console.log("Adding funds:", values);
         setIsAddMoreModalOpen(false);
         addMoreForm.resetFields();
@@ -200,6 +227,8 @@ export const AddMoreFundsModal = ({
             </Space>
           </Radio.Group>
         </Form.Item>
+
+         <p>Smart Wallet: {client?.account?.address}</p>
 
         <div className="flex gap-3 mt-6">
           <Button
