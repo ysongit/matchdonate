@@ -74,6 +74,9 @@ export const AddMoreFundsModal = ({
     },],
     functionName: 'balanceOf',
     args: [userAddress as `0x${string}`],
+    query: {
+      refetchInterval: 5000,
+    },
   }) as { data: bigint };
 
   const { writeContractAsync, error } = useWriteContract();

@@ -73,6 +73,9 @@ const Overview = () => {
     abi: contracts.GivingFundToken.abi,
     functionName: 'balanceOf',
     args: [address as `0x${string}`],
+    query: {
+      refetchInterval: 5000,
+    },
   }) as { data: bigint };
 
   const { data: bespokeFundTokenAddresses } = useReadContract({
@@ -80,6 +83,9 @@ const Overview = () => {
     abi: contracts.BespokeFundTokenFactory.abi,
     functionName: "getUserFunds",
     args: [address as `0x${string}`],
+    query: {
+      refetchInterval: 5000,
+    },
   });
 
   const { data: matchingFundTokenAddresses } = useReadContract({
@@ -87,6 +93,9 @@ const Overview = () => {
     abi: contracts.MatchingFundTokenFactory.abi,
     functionName: "getUserFunds",
     args: [address as `0x${string}`],
+    query: {
+      refetchInterval: 5000,
+    },
   });
 
   const { writeContract: writeYourContractAsync } = useWriteContract();
