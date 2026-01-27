@@ -1,6 +1,25 @@
-import React, { useState } from 'react';
-import { Button, Table, Input, Modal } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Button, Table, Input, Dropdown } from 'antd';
 import { PlusOutlined, EllipsisOutlined } from '@ant-design/icons';
+import { AddMoreFundsModal, BespokeGivingFundTokenModal, MatchingFundTokenModal } from '../overview/_components';
+import deployedContracts from "../../contracts/deployedContracts";
+import { useWalletAddress } from "../../hooks/useWalletAddress";
+import { calculatePercentageFunded } from "../../utils/calculatePercentageFunded";
+import { useChainId, useConfig, useReadContract } from 'wagmi';
+import { readContract } from "@wagmi/core";
+import { formatUnits } from 'viem';
+import { formatDate } from '../../utils/formatDate';
+
+interface FundDetails {
+  address: string;
+  creator: string;
+  name: string;
+  symbol: string;
+  createdAt: bigint;
+  exists: boolean;
+  availableTokens: bigint;
+  percentageFunded: string;
+}
 
 interface Transaction {
   transactionId: string;
@@ -13,30 +32,187 @@ interface GivingFundReceived {
   from: string;
 }
 
-interface BespokeFund {
-  name: string;
-  createdDate: string;
-  donatedAmount: number;
-  availableAmount: number;
-  percentageFunded: number;
-}
-
-interface MatchingFund {
-  name: string;
-  createdDate: string;
-  donatedAmount: number;
-  availableAmount: number;
-  percentageFunded: number;
-}
-
 const MyGivingFund: React.FC = () => {
+  const chainId = useChainId();
+  const config = useConfig();
+  const { address } = useWalletAddress();
+
+  const contracts = deployedContracts[chainId as keyof typeof deployedContracts];
+
   const [giftCode, setGiftCode] = useState('');
-  const [isCreateBespokeModalOpen, setIsCreateBespokeModalOpen] = useState(false);
-  const [isCreateMatchingModalOpen, setIsCreateMatchingModalOpen] = useState(false);
-  const [bespokeTokenName, setBespokeTokenName] = useState('');
-  const [bespokeAmount, setBespokeAmount] = useState('');
-  const [matchingFundName, setMatchingFundName] = useState('');
-  const [matchingAmount, setMatchingAmount] = useState('');
+  const [isAddMoreModalOpen, setIsAddMoreModalOpen] = useState(false);
+  const [isGivingModalOpen, setIsGivingModalOpen] = useState(false);
+  const [isMatchingModalOpen, setIsMatchingModalOpen] = useState(false);
+
+  const [bespokeFundsDetails, setBespokeFundsDetails] = useState<FundDetails[]>([]);
+  const [isLoadingBespokeDetails, setIsBespokeLoadingDetails] = useState(false);
+  const [matchingFundsDetails, setMatchingFundsDetails] = useState<FundDetails[]>([]);
+  const [isMatchingLoadingDetails, setIsMatchingLoadingDetails] = useState(false);
+
+  const { data: givingFundTokenAmount = 0n } = useReadContract({
+    address: contracts.GivingFundToken.address,
+    abi: contracts.GivingFundToken.abi,
+    functionName: 'balanceOf',
+    args: [address as `0x${string}`],
+    query: {
+      refetchInterval: 5000,
+    },
+  }) as { data: bigint };
+
+  const { data: bespokeFundTokenAddresses } = useReadContract({
+    address: contracts.BespokeFundTokenFactory.address,
+    abi: contracts.BespokeFundTokenFactory.abi,
+    functionName: "getUserFunds",
+    args: [address as `0x${string}`],
+    query: {
+      refetchInterval: 5000,
+    },
+  });
+
+  const { data: matchingFundTokenAddresses } = useReadContract({
+    address: contracts.MatchingFundTokenFactory.address,
+    abi: contracts.MatchingFundTokenFactory.abi,
+    functionName: "getUserFunds",
+    args: [address as `0x${string}`],
+    query: {
+      refetchInterval: 5000,
+    },
+  });
+
+  useEffect(() => {
+    if (!bespokeFundTokenAddresses || bespokeFundTokenAddresses.length === 0) {
+      setBespokeFundsDetails([]);
+      return;
+    }
+
+    const fetchAllFundDetails = async () => {
+      setIsBespokeLoadingDetails(true);
+      try {
+        const details: FundDetails[] = [];
+
+        for (const fundAddress of bespokeFundTokenAddresses) {
+          const response = await readContract(config, {
+            abi: deployedContracts[chainId].BespokeFundTokenFactory.abi,
+            address: deployedContracts[chainId].BespokeFundTokenFactory.address as `0x${string}`,
+            functionName: "getFundInfo",
+            args: [fundAddress as `0x${string}`],
+          });
+
+          const availableTokens = await readContract(config, {
+            abi: [{
+              inputs: [],
+              name: "totalSupply",
+              outputs: [
+                {
+                  internalType: "uint256",
+                  name: "",
+                  type: "uint256",
+                },
+              ],
+              stateMutability: "view",
+              type: "function",
+            }],
+            address: fundAddress as `0x${string}`,
+            functionName: "totalSupply",
+          });
+
+          const fundedGFT = await readContract(config, {
+            abi: deployedContracts[chainId].GivingFundToken.abi,
+            address: deployedContracts[chainId].GivingFundToken.address as `0x${string}`,
+            functionName: "balanceOf",
+            args: [fundAddress as `0x${string}`],
+          });
+
+          details.push({
+            address: fundAddress,
+            creator: address || "",
+            name: response[1],
+            symbol: response[2],
+            createdAt: response[3],
+            exists: true,
+            availableTokens: availableTokens,
+            percentageFunded: calculatePercentageFunded(fundedGFT, availableTokens),
+          });
+        }
+
+        setBespokeFundsDetails(details);
+      } catch (error) {
+        console.error("Error fetching fund details:", error);
+      } finally {
+        setIsBespokeLoadingDetails(false);
+      }
+    };
+
+    fetchAllFundDetails();
+  }, [bespokeFundTokenAddresses, address]);
+
+  useEffect(() => {
+    if (!matchingFundTokenAddresses || matchingFundTokenAddresses.length === 0) {
+      setBespokeFundsDetails([]);
+      return;
+    }
+
+    const fetchAllMatchingFundDetails = async () => {
+      setIsMatchingLoadingDetails(true);
+      try {
+        const details: FundDetails[] = [];
+
+        for (const fundAddress of matchingFundTokenAddresses) {
+          const response = await readContract(config, {
+            abi: deployedContracts[chainId].MatchingFundTokenFactory.abi,
+            address: deployedContracts[chainId].MatchingFundTokenFactory.address as `0x${string}`,
+            functionName: "getFundInfo",
+            args: [fundAddress as `0x${string}`],
+          });
+
+          const availableTokens = await readContract(config, {
+            abi: [{
+              inputs: [],
+              name: "totalSupply",
+              outputs: [
+                {
+                  internalType: "uint256",
+                  name: "",
+                  type: "uint256",
+                },
+              ],
+              stateMutability: "view",
+              type: "function",
+            }],
+            address: fundAddress as `0x${string}`,
+            functionName: "totalSupply",
+          });
+
+          console.log(response);
+          const fundedGFT = await readContract(config, {
+            abi: deployedContracts[chainId].GivingFundToken.abi,
+            address: deployedContracts[chainId].GivingFundToken.address as `0x${string}`,
+            functionName: "balanceOf",
+            args: [fundAddress as `0x${string}`],
+          });
+
+          details.push({
+            address: fundAddress,
+            creator: address || "",
+            name: response[1],
+            symbol: response[2],
+            createdAt: response[4],
+            exists: true,
+            availableTokens: availableTokens,
+            percentageFunded: calculatePercentageFunded(fundedGFT, availableTokens),
+          });
+        }
+
+        setMatchingFundsDetails(details);
+      } catch (error) {
+        console.error("Error fetching fund details:", error);
+      } finally {
+        setIsMatchingLoadingDetails(false);
+      }
+    };
+
+    fetchAllMatchingFundDetails();
+  }, [matchingFundTokenAddresses, address]);
 
   const transactions: Transaction[] = [
     { transactionId: '#TXN003', amount: 500, date: 'Jan 15, 2024' },
@@ -48,20 +224,6 @@ const MyGivingFund: React.FC = () => {
     { amount: 1000, from: 'from QR Giving Fund' },
     { amount: 500, from: 'from John Doe Giving Fund' },
     { amount: 300, from: 'from CK Matching Fund' },
-  ];
-
-  const bespokeFunds: BespokeFund[] = [
-    { name: 'Total Bespoke Giving Funds', createdDate: '', donatedAmount: 0, availableAmount: 0, percentageFunded: 0 },
-    { name: "Daisy's Giving Fund", createdDate: 'Jan 20, 2025', donatedAmount: 500, availableAmount: 2000, percentageFunded: 50 },
-    { name: "Daisy's Family Giving Fund", createdDate: 'Jan 19, 2024', donatedAmount: 1000, availableAmount: 2000, percentageFunded: 50 },
-    { name: "Daisy's 2023 Giving Fund", createdDate: 'Jan 1, 2023', donatedAmount: 500, availableAmount: 1000, percentageFunded: 50 },
-  ];
-
-  const matchingFunds: MatchingFund[] = [
-    { name: 'Total Matching Funds', createdDate: '', donatedAmount: 2000, availableAmount: 5000, percentageFunded: 0 },
-    { name: "Daisy's Matching Fund", createdDate: 'Jan 20, 2025', donatedAmount: 500, availableAmount: 2000, percentageFunded: 50 },
-    { name: "Daisy's Family Matching Fund", createdDate: 'Jan 19, 2024', donatedAmount: 1000, availableAmount: 2000, percentageFunded: 33 },
-    { name: "Daisy's 2023 Matching Fund", createdDate: 'Jan 1, 2023', donatedAmount: 500, availableAmount: 1000, percentageFunded: 100 },
   ];
 
   const transactionColumns = [
@@ -100,32 +262,31 @@ const MyGivingFund: React.FC = () => {
     },
     { 
       title: 'Created Date', 
-      dataIndex: 'createdDate', 
-      key: 'createdDate',
-      render: (val: string) => val || '-'
+      dataIndex: 'createdAt', 
+      key: 'createdAt',
+      render: (val: bigint) => formatDate(val) || '-'
     },
     { 
       title: 'Donated Amount', 
       dataIndex: 'donatedAmount', 
-      key: 'donatedAmount', 
-      render: (val: number, record: BespokeFund) => record.name === 'Total Bespoke Giving Funds' ? '-' : val
+      key: 'donatedAmount',
     },
     { 
       title: 'Available Amount', 
-      dataIndex: 'availableAmount', 
-      key: 'availableAmount', 
-      render: (val: number, record: BespokeFund) => record.name === 'Total Bespoke Giving Funds' ? '-' : val.toLocaleString()
+      dataIndex: 'availableTokens', 
+      key: 'availableTokens', 
+      render: (val: bigint) => `${formatUnits(val, 6)}`,
     },
     { 
       title: 'Percentage Funded', 
       dataIndex: 'percentageFunded', 
       key: 'percentageFunded', 
-      render: (val: number, record: BespokeFund) => record.name === 'Total Bespoke Giving Funds' ? '-' : `${val}%`
+      render: (val: number) => `${val}%`,
     },
     {
       title: '',
       key: 'action',
-      render: (_: any, record: BespokeFund) => 
+      render: (_: any, record: FundDetails) => 
         record.name !== 'Total Bespoke Giving Funds' ? (
           <Button type="primary" size="small">Increase Funding</Button>
         ) : null
@@ -140,9 +301,9 @@ const MyGivingFund: React.FC = () => {
     },
     { 
       title: 'Created Date', 
-      dataIndex: 'createdDate', 
-      key: 'createdDate',
-      render: (val: string) => val || '-'
+      dataIndex: 'createdAt', 
+      key: 'createdAt',
+      render: (val: bigint) => formatDate(val) || '-'
     },
     { 
       title: 'Donated Amount', 
@@ -152,57 +313,44 @@ const MyGivingFund: React.FC = () => {
     },
     { 
       title: 'Available Amount', 
-      dataIndex: 'availableAmount', 
-      key: 'availableAmount', 
-      render: (val: number) => val.toLocaleString()
+      dataIndex: 'availableTokens', 
+      key: 'availableTokens', 
+      render: (val: bigint) => `${formatUnits(val, 6)}`,
     },
     { 
       title: 'Percentage Funded', 
       dataIndex: 'percentageFunded', 
       key: 'percentageFunded', 
-      render: (val: number, record: MatchingFund) => record.name === 'Total Matching Funds' ? '-' : `${val}%`
+      render: (val: number) => `${val}%`,
     },
     {
       title: '',
       key: 'action',
-      render: (_: any, record: MatchingFund) => 
+      render: (_: any, record: FundDetails) => 
         record.name !== 'Total Matching Funds' ? (
           <Button type="primary" size="small">Increase Funding</Button>
         ) : null
     },
   ];
 
-  const handleCreateBespoke = () => {
-    if (bespokeTokenName && bespokeAmount) {
-      console.log('Creating Bespoke Token:', { tokenName: bespokeTokenName, amount: bespokeAmount });
-      setIsCreateBespokeModalOpen(false);
-      setBespokeTokenName('');
-      setBespokeAmount('');
-    }
-  };
-
-  const handleCreateMatching = () => {
-    if (matchingFundName && matchingAmount) {
-      console.log('Creating Matching Token:', { fundName: matchingFundName, amount: matchingAmount });
-      setIsCreateMatchingModalOpen(false);
-      setMatchingFundName('');
-      setMatchingAmount('');
-    }
-  };
+  const givingfundMenuItems = [
+    { key: "donate", label: "Donate" },
+    { key: "gift", label: "Gift" },
+  ];
 
   return (
-    <div className="min-h-screen bg-white p-4 md:p-6 max-w-4xl mx-auto">
+    <div className="min-h-screen max-w-4xl mx-auto">
       {/* General Giving Fund */}
-      <div className="mb-8">
+      <div className="mb-8 bg-white p-4 md:p-6">
         <div className="flex justify-between items-start mb-6">
           <div>
             <h2 className="text-gray-800 text-lg font-semibold mb-3">General Giving Fund</h2>
             <div>
               <p className="text-gray-400 text-xs uppercase mb-1">Available Balance</p>
-              <p className="text-3xl font-bold text-purple-600">$1,000</p>
+              <p className="text-3xl font-bold text-purple-600">${formatUnits(givingFundTokenAmount, 6)}</p>
             </div>
           </div>
-          <Button type="primary" icon={<PlusOutlined />} size="small">
+          <Button type="primary" icon={<PlusOutlined />} size="small"  onClick={() => setIsAddMoreModalOpen(true)}>
             Add
           </Button>
         </div>
@@ -237,14 +385,10 @@ const MyGivingFund: React.FC = () => {
                     <p className="text-2xl font-bold text-purple-600 mb-1">${fund.amount.toLocaleString()}</p>
                     <p className="text-gray-500 text-xs">{fund.from}</p>
                   </div>
-                  <Button type="text" icon={<EllipsisOutlined />} size="small" className="text-gray-400" />
+                  <Dropdown menu={{ items: givingfundMenuItems }} trigger={["click"]}>
+                    <Button type="text" icon={<EllipsisOutlined />} size="small" className="text-gray-400" />
+                  </Dropdown>
                 </div>
-                <Button type="primary" size="small" block className="mb-2">
-                  Donate
-                </Button>
-                <button className="w-full text-center text-gray-400 text-sm hover:text-purple-600">
-                  Gift
-                </button>
               </div>
             ))}
           </div>
@@ -268,18 +412,19 @@ const MyGivingFund: React.FC = () => {
       </div>
 
       {/* Bespoke Giving Fund */}
-      <div className="mb-8">
+      <div className="mb-8 bg-white p-4 md:p-6">
         <h2 className="text-gray-800 text-lg font-semibold mb-4">Bespoke Giving Fund</h2>
         
-        <div className="border border-gray-200 rounded-lg p-4">
+        <div className="rounded-lg">
           <Table 
             columns={bespokeColumns} 
-            dataSource={bespokeFunds}
+            dataSource={bespokeFundsDetails}
             pagination={false}
             rowKey="name"
             size="small"
             className="bespoke-table"
             rowClassName={(record) => record.name === 'Total Bespoke Giving Funds' ? 'font-semibold' : ''}
+            loading={isLoadingBespokeDetails}
           />
           <Button type="link" className="text-purple-600 mt-2 px-0 text-sm">
             Show All Tokens →
@@ -287,16 +432,11 @@ const MyGivingFund: React.FC = () => {
 
           {/* Create New Bespoke */}
           <div className="mt-6 pt-6 border-t-2 border-dashed border-gray-300">
-            <h4 className="text-gray-400 text-xs uppercase mb-3">Create New Bespoke Giving Fund Token</h4>
-            <div className="flex gap-2 flex-col sm:flex-row">
-              <Input placeholder="Token Name (e.g., DK Giving Fund)" className="flex-1" />
-              <Input placeholder="Amount" className="flex-1" />
-            </div>
             <Button 
               type="primary"
               block
-              className="mt-3"
-              onClick={() => setIsCreateBespokeModalOpen(true)}
+              className="mt-1"
+              onClick={() => setIsGivingModalOpen(true)}
             >
               Create My Own Giving Fund Token
             </Button>
@@ -305,18 +445,19 @@ const MyGivingFund: React.FC = () => {
       </div>
 
       {/* Matching Fund */}
-      <div className="mb-8">
+      <div className="mb-8 bg-white p-4 md:p-6">
         <h2 className="text-gray-800 text-lg font-semibold mb-4">Matching Fund</h2>
         
-        <div className="border border-gray-200 rounded-lg p-4">
+        <div className="rounded-lg">
           <Table 
             columns={matchingColumns} 
-            dataSource={matchingFunds}
+            dataSource={matchingFundsDetails}
             pagination={false}
             rowKey="name"
             size="small"
             className="matching-table"
             rowClassName={(record) => record.name === 'Total Matching Funds' ? 'font-semibold' : ''}
+            loading={isMatchingLoadingDetails}
           />
           <Button type="link" className="text-purple-600 mt-2 px-0 text-sm">
             Show All Matching Funds →
@@ -324,16 +465,11 @@ const MyGivingFund: React.FC = () => {
 
           {/* Create New Matching */}
           <div className="mt-6 pt-6 border-t border-gray-200">
-            <h4 className="text-gray-400 text-xs uppercase mb-3">Create New Matching Giving Fund Token</h4>
-            <div className="flex gap-2 flex-col sm:flex-row">
-              <Input placeholder="Fund Name (e.g., Employee Match)" className="flex-1" />
-              <Input placeholder="Amount" className="flex-1" />
-            </div>
             <Button 
               type="primary"
               block
-              className="mt-3"
-              onClick={() => setIsCreateMatchingModalOpen(true)}
+              className="mt-1"
+              onClick={() => setIsMatchingModalOpen(true)}
             >
               Create My Matching Fund Token
             </Button>
@@ -341,107 +477,26 @@ const MyGivingFund: React.FC = () => {
         </div>
       </div>
 
-      {/* Create Bespoke Modal */}
-      <Modal
-        title="Create Bespoke Giving Fund Token"
-        open={isCreateBespokeModalOpen}
-        onCancel={() => {
-          setIsCreateBespokeModalOpen(false);
-          setBespokeTokenName('');
-          setBespokeAmount('');
-        }}
-        footer={[
-          <Button 
-            key="cancel" 
-            onClick={() => {
-              setIsCreateBespokeModalOpen(false);
-              setBespokeTokenName('');
-              setBespokeAmount('');
-            }}
-          >
-            Cancel
-          </Button>,
-          <Button 
-            key="create" 
-            type="primary" 
-            onClick={handleCreateBespoke}
-          >
-            Create Token
-          </Button>,
-        ]}
-      >
-        <div className="mt-4 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Token Name</label>
-            <Input 
-              placeholder="Enter token name" 
-              size="large"
-              value={bespokeTokenName}
-              onChange={(e) => setBespokeTokenName(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
-            <Input 
-              placeholder="Enter amount" 
-              size="large"
-              value={bespokeAmount}
-              onChange={(e) => setBespokeAmount(e.target.value)}
-            />
-          </div>
-        </div>
-      </Modal>
+       <BespokeGivingFundTokenModal
+          givingFundTokenAmount={givingFundTokenAmount}
+          contracts={contracts}
+          isGivingModalOpen={isGivingModalOpen}
+          setIsGivingModalOpen={setIsGivingModalOpen}
+        />
 
-      {/* Create Matching Modal */}
-      <Modal
-        title="Create Matching Fund Token"
-        open={isCreateMatchingModalOpen}
-        onCancel={() => {
-          setIsCreateMatchingModalOpen(false);
-          setMatchingFundName('');
-          setMatchingAmount('');
-        }}
-        footer={[
-          <Button 
-            key="cancel" 
-            onClick={() => {
-              setIsCreateMatchingModalOpen(false);
-              setMatchingFundName('');
-              setMatchingAmount('');
-            }}
-          >
-            Cancel
-          </Button>,
-          <Button 
-            key="create" 
-            type="primary" 
-            onClick={handleCreateMatching}
-          >
-            Create Token
-          </Button>,
-        ]}
-      >
-        <div className="mt-4 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Fund Name</label>
-            <Input 
-              placeholder="Enter fund name" 
-              size="large"
-              value={matchingFundName}
-              onChange={(e) => setMatchingFundName(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
-            <Input 
-              placeholder="Enter amount" 
-              size="large"
-              value={matchingAmount}
-              onChange={(e) => setMatchingAmount(e.target.value)}
-            />
-          </div>
-        </div>
-      </Modal>
+        <MatchingFundTokenModal
+          givingFundTokenAmount={givingFundTokenAmount}
+          contracts={contracts}
+          isMatchingModalOpen={isMatchingModalOpen}
+          setIsMatchingModalOpen={setIsMatchingModalOpen}
+        />
+
+      <AddMoreFundsModal
+        contracts={contracts}
+        userAddress={address}
+        isAddMoreModalOpen={isAddMoreModalOpen}
+        setIsAddMoreModalOpen={setIsAddMoreModalOpen}
+      />
 
       {/* @ts-ignore */}
       <style jsx global>{`
