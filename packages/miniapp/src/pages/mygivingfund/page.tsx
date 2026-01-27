@@ -443,6 +443,7 @@ const MyGivingFund: React.FC = () => {
         </div>
       </Modal>
 
+      {/* @ts-ignore */}
       <style jsx global>{`
         .ant-table-thead > tr > th {
           background-color: #fafafa !important;

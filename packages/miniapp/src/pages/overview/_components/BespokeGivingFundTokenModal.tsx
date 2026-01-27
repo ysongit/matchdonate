@@ -34,6 +34,7 @@ export const BespokeGivingFundTokenModal = ({
     givingForm.validateFields().then(async (values) => {
       try {
         if (client) {
+          // @ts-ignore
           await writeContractviem(client, {
             address: contracts.BespokeFundTokenFactory.address,
             abi: contracts.BespokeFundTokenFactory.abi,

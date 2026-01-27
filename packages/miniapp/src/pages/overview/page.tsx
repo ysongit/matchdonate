@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { AddMoreFundsModal, BespokeGivingFundTokenModal, MatchingFundTokenModal } from "./_components";
 import { readContract } from "@wagmi/core";
 import { Button, Dropdown, Input, Table } from "antd";
-import { useAccount, useChainId, useConfig, useReadContract, useWriteContract } from "wagmi";
+import { useChainId, useConfig, useReadContract, useWriteContract } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
 import { CalendarIcon, EllipsisVerticalIcon } from "@heroicons/react/24/outline";
 import deployedContracts from "../../contracts/deployedContracts";
@@ -363,6 +363,7 @@ const Overview = () => {
   const getTestUSDC = async () => {
     try {
       if (client) {
+        // @ts-ignore
         await writeContractviem(client, {
           abi: [mintUSCD_ABI],
           address: USDC_ADDRESS,
@@ -579,6 +580,7 @@ const Overview = () => {
         setIsMatchingModalOpen={setIsMatchingModalOpen}
       />
 
+      {/* @ts-ignore */}
       <style jsx global>{`
         .custom-table .ant-table-thead > tr > th {
           background-color: #f9fafb;

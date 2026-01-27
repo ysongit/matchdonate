@@ -31,6 +31,7 @@ export const MatchingFundTokenModal = ({ givingFundTokenAmount, contracts, isMat
         const timestamp = values.expirationDate ? Math.floor(values.expirationDate.valueOf() / 1000) : 0;
 
         if (client) {
+          // @ts-ignore
           await writeContractviem(client, {
             address: contracts.MatchingFundTokenFactory.address,
             abi: contracts.MatchingFundTokenFactory.abi,

@@ -129,6 +129,7 @@ export const AddMoreFundsModal = ({
 
         if (approvedAmount < parseAmount) {
           if (client) {
+            // @ts-ignore
             const approvalHash = await writeContractviem(client, {
               abi: [approve_ABI],
               address: USDC_ADDRESS as `0x${string}`,
@@ -159,6 +160,7 @@ export const AddMoreFundsModal = ({
         }
 
         if (client) {
+          // @ts-ignore
           await writeContractviem(client, {
             address: contracts.GivingFundToken.address,
             abi: contracts.GivingFundToken.abi,
@@ -230,8 +232,6 @@ export const AddMoreFundsModal = ({
             </Space>
           </Radio.Group>
         </Form.Item>
-
-         <p>Smart Wallet: {client?.account?.address}</p>
 
         <div className="flex gap-3 mt-6">
           <Button
