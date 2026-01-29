@@ -9,6 +9,7 @@ import { useChainId, useConfig, useReadContract } from 'wagmi';
 import { readContract } from "@wagmi/core";
 import { formatUnits } from 'viem';
 import { formatDate } from '../../utils/formatDate';
+import { IncreaseBespokeFundModal } from './_components';
 
 interface FundDetails {
   address: string;
@@ -19,6 +20,7 @@ interface FundDetails {
   exists: boolean;
   availableTokens: bigint;
   percentageFunded: string;
+  fundedGFT: bigint;
 }
 
 interface Transaction {
@@ -41,11 +43,13 @@ const MyGivingFund: React.FC = () => {
 
   const [giftCode, setGiftCode] = useState('');
   const [isAddMoreModalOpen, setIsAddMoreModalOpen] = useState(false);
+  const [isIncreaseBespokeFundModalOpen, setIsIncreaseBespokeFundModalOpen] = useState(false);
   const [isGivingModalOpen, setIsGivingModalOpen] = useState(false);
   const [isMatchingModalOpen, setIsMatchingModalOpen] = useState(false);
 
   const [bespokeFundsDetails, setBespokeFundsDetails] = useState<FundDetails[]>([]);
   const [isLoadingBespokeDetails, setIsBespokeLoadingDetails] = useState(false);
+  const [selectedBespokeFund, setSelectedBespokeFund] = useState<FundDetails>(null);
   const [matchingFundsDetails, setMatchingFundsDetails] = useState<FundDetails[]>([]);
   const [isMatchingLoadingDetails, setIsMatchingLoadingDetails] = useState(false);
 
@@ -132,6 +136,7 @@ const MyGivingFund: React.FC = () => {
             exists: true,
             availableTokens: availableTokens,
             percentageFunded: calculatePercentageFunded(fundedGFT, availableTokens),
+            fundedGFT: fundedGFT
           });
         }
 
@@ -200,6 +205,7 @@ const MyGivingFund: React.FC = () => {
             exists: true,
             availableTokens: availableTokens,
             percentageFunded: calculatePercentageFunded(fundedGFT, availableTokens),
+            fundedGFT: fundedGFT
           });
         }
 
@@ -213,6 +219,11 @@ const MyGivingFund: React.FC = () => {
 
     fetchAllMatchingFundDetails();
   }, [matchingFundTokenAddresses, address]);
+
+  const handleSelectAndOpenBespokeModal = (record: FundDetails) => {
+    setSelectedBespokeFund(record);
+    setIsIncreaseBespokeFundModalOpen(true);
+  }
 
   const transactions: Transaction[] = [
     { transactionId: '#TXN003', amount: 500, date: 'Jan 15, 2024' },
@@ -286,10 +297,7 @@ const MyGivingFund: React.FC = () => {
     {
       title: '',
       key: 'action',
-      render: (_: any, record: FundDetails) => 
-        record.name !== 'Total Bespoke Giving Funds' ? (
-          <Button type="primary" size="small">Increase Funding</Button>
-        ) : null
+      render: (_: any, record: FundDetails) => <Button type="primary" size="small" onClick={() => handleSelectAndOpenBespokeModal(record)}>Increase Funding</Button>
     },
   ];
 
@@ -477,19 +485,27 @@ const MyGivingFund: React.FC = () => {
         </div>
       </div>
 
-       <BespokeGivingFundTokenModal
-          givingFundTokenAmount={givingFundTokenAmount}
-          contracts={contracts}
-          isGivingModalOpen={isGivingModalOpen}
-          setIsGivingModalOpen={setIsGivingModalOpen}
-        />
+      <BespokeGivingFundTokenModal
+        givingFundTokenAmount={givingFundTokenAmount}
+        contracts={contracts}
+        isGivingModalOpen={isGivingModalOpen}
+        setIsGivingModalOpen={setIsGivingModalOpen}
+      />
 
-        <MatchingFundTokenModal
-          givingFundTokenAmount={givingFundTokenAmount}
-          contracts={contracts}
-          isMatchingModalOpen={isMatchingModalOpen}
-          setIsMatchingModalOpen={setIsMatchingModalOpen}
-        />
+      <MatchingFundTokenModal
+        givingFundTokenAmount={givingFundTokenAmount}
+        contracts={contracts}
+        isMatchingModalOpen={isMatchingModalOpen}
+        setIsMatchingModalOpen={setIsMatchingModalOpen}
+      />
+
+      <IncreaseBespokeFundModal
+        selectedBespokeFund={selectedBespokeFund}
+        givingFundTokenAmount={givingFundTokenAmount}
+        contracts={contracts}
+        isModalOpen={isIncreaseBespokeFundModalOpen}
+        setIsModalOpen={setIsIncreaseBespokeFundModalOpen}
+      />
 
       <AddMoreFundsModal
         contracts={contracts}

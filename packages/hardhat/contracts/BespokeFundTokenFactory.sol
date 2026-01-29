@@ -120,6 +120,28 @@ contract BespokeFundTokenFactory {
     }
 
     /**
+     * @dev Increase funding by burning user's GF tokens
+     * This is specifically for contributing to someone else's fund
+     * @param amount Amount of GF tokens to burn and contribute
+     */
+    function increaseFunding(uint256 amount, address bespokeTokenAddress) external {
+        require(amount > 0, "Amount must be > 0");
+        require(amount <= IGivingFundToken(gfToken).balanceOf(msg.sender), "Not enough GF tokens");
+
+        // Burn GF tokens from contributor
+        require(
+            IGivingFundToken(gfToken).burn(msg.sender, amount),
+            "GF burn failed"
+        );
+
+        // Mint GF tokens to this contract to back the bespoke tokens
+        require(
+            IGivingFundToken(gfToken).mintTo(bespokeTokenAddress, amount),
+            "GF mint failed"
+        );
+    }
+
+    /**
      * @dev Get all funds created by a user
      * @param user User address
      */
