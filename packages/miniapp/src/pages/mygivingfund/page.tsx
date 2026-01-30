@@ -8,7 +8,9 @@ import { calculatePercentageFunded } from "../../utils/calculatePercentageFunded
 import { useChainId, useConfig, useReadContract } from 'wagmi';
 import { readContract } from "@wagmi/core";
 import { formatUnits } from 'viem';
+import { getContractEvents } from 'viem/actions';
 import { formatDate } from '../../utils/formatDate';
+import { formatTxHash } from '../../utils/formatTxHash';
 import { IncreaseBespokeFundModal } from './_components';
 
 interface FundDetails {
@@ -25,8 +27,8 @@ interface FundDetails {
 
 interface Transaction {
   transactionId: string;
-  amount: number;
-  date: string;
+  amount: bigint;
+  date: bigint;
 }
 
 interface GivingFundReceived {
@@ -47,9 +49,10 @@ const MyGivingFund: React.FC = () => {
   const [isGivingModalOpen, setIsGivingModalOpen] = useState(false);
   const [isMatchingModalOpen, setIsMatchingModalOpen] = useState(false);
 
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [bespokeFundsDetails, setBespokeFundsDetails] = useState<FundDetails[]>([]);
   const [isLoadingBespokeDetails, setIsBespokeLoadingDetails] = useState(false);
-  const [selectedBespokeFund, setSelectedBespokeFund] = useState<FundDetails>(null);
+  const [selectedBespokeFund, setSelectedBespokeFund] = useState<FundDetails>();
   const [matchingFundsDetails, setMatchingFundsDetails] = useState<FundDetails[]>([]);
   const [isMatchingLoadingDetails, setIsMatchingLoadingDetails] = useState(false);
 
@@ -82,6 +85,36 @@ const MyGivingFund: React.FC = () => {
       refetchInterval: 5000,
     },
   });
+
+  useEffect(() => {
+    async function getMintedEventsByUser() {
+      const events = await getContractEvents(config.getClient(), {
+        address: contracts.GivingFundToken.address,
+        abi: contracts.GivingFundToken.abi,
+        eventName: 'Minted',
+        args: {
+          user: address
+        },
+        fromBlock: 0n,
+        toBlock: 'latest'
+      });
+
+      // @ts-ignore
+      const formattedEvents: Transaction[] = events.map(event => ({
+        transactionId: event.transactionHash,
+        amount: event.args.amount,
+        // @ts-ignore
+        date: event.args.date,
+      }));
+
+      console.log(formattedEvents);
+      
+      setRecentTransactions(formattedEvents);
+    }
+
+    getMintedEventsByUser();
+  }, [])
+  
 
   useEffect(() => {
     if (!bespokeFundTokenAddresses || bespokeFundTokenAddresses.length === 0) {
@@ -225,12 +258,6 @@ const MyGivingFund: React.FC = () => {
     setIsIncreaseBespokeFundModalOpen(true);
   }
 
-  const transactions: Transaction[] = [
-    { transactionId: '#TXN003', amount: 500, date: 'Jan 15, 2024' },
-    { transactionId: '#TXN002', amount: 300, date: 'Jan 10, 2024' },
-    { transactionId: '#TXN001', amount: 200, date: 'Jan 5, 2024' },
-  ];
-
   const givingFundsReceived: GivingFundReceived[] = [
     { amount: 1000, from: 'from QR Giving Fund' },
     { amount: 500, from: 'from John Doe Giving Fund' },
@@ -242,19 +269,21 @@ const MyGivingFund: React.FC = () => {
       title: 'Transaction ID', 
       dataIndex: 'transactionId', 
       key: 'transactionId',
+      render: (val: bigint) => `${formatTxHash(val)}`,
       width: '25%'
     },
     { 
       title: 'Amount', 
       dataIndex: 'amount', 
       key: 'amount', 
-      render: (val: number) => `$${val}`,
+      render: (val: bigint) => `${formatUnits(val, 6)}`,
       width: '25%'
     },
     { 
       title: 'Date', 
       dataIndex: 'date', 
       key: 'date',
+      render: (val: bigint) => formatDate(val) || '-',
       width: '25%'
     },
     { 
@@ -368,7 +397,7 @@ const MyGivingFund: React.FC = () => {
           <h3 className="text-gray-400 text-xs uppercase mb-3">Recent Transactions</h3>
           <Table 
             columns={transactionColumns} 
-            dataSource={transactions} 
+            dataSource={recentTransactions} 
             pagination={false}
             rowKey="transactionId"
             size="small"
