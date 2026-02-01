@@ -1,7 +1,9 @@
 import { readContract, waitForTransactionReceipt } from "@wagmi/core";
 import { Button, Form, Input, Modal, Radio, Space, message } from "antd";
-import { useConfig, useWriteContract } from "wagmi";
-import { parseUnits } from "viem";
+import { useConfig, useReadContract, useWriteContract } from "wagmi";
+import { formatUnits, parseUnits } from "viem";
+import { writeContract as writeContractviem } from 'viem/actions';
+import { useSmartWallets } from '@privy-io/react-auth/smart-wallets';
 
 type AddMoreFundsTokenProps = {
   contracts: any,
@@ -12,18 +14,72 @@ type AddMoreFundsTokenProps = {
 
 const USDC_ADDRESS = import.meta.env.VITE_USDC_ADDRESS;
 
+const approve_ABI =  {
+  inputs: [
+    {
+      internalType: "address",
+      name: "spender",
+      type: "address",
+    },
+    {
+      internalType: "uint256",
+      name: "amount",
+      type: "uint256",
+    },
+  ],
+  name: "approve",
+  outputs: [
+    {
+      internalType: "bool",
+      name: "",
+      type: "bool",
+    },
+  ],
+  stateMutability: "nonpayable",
+  type: "function",
+}
+
 export const AddMoreFundsModal = ({
   contracts,
   userAddress,
   isAddMoreModalOpen,
   setIsAddMoreModalOpen,
 }: AddMoreFundsTokenProps) => {
+  const { client } = useSmartWallets();
   const [addMoreForm] = Form.useForm();
   const [messageApi] = message.useMessage();
 
   const config = useConfig();
 
-  const { writeContract: writeYourContractAsync, error } = useWriteContract();
+  const { data: usdcAmount = 0n } = useReadContract({
+    address: USDC_ADDRESS,
+    abi: [{
+      inputs: [
+        {
+          internalType: "address",
+          name: "",
+          type: "address",
+        },
+      ],
+      name: "balanceOf",
+      outputs: [
+        {
+          internalType: "uint256",
+          name: "",
+          type: "uint256",
+        },
+      ],
+      stateMutability: "view",
+      type: "function",
+    },],
+    functionName: 'balanceOf',
+    args: [userAddress as `0x${string}`],
+    query: {
+      refetchInterval: 5000,
+    },
+  }) as { data: bigint };
+
+  const { writeContractAsync, error } = useWriteContract();
 
   async function getApproveAmount(): Promise<number> {
     // read from the chain to see if we have approved enough token
@@ -72,52 +128,55 @@ export const AddMoreFundsModal = ({
         const parseAmount = parseUnits(values.amount, 6);
 
         if (approvedAmount < parseAmount) {
-          const approvalHash = writeYourContractAsync({
-            abi: [
-              {
-                inputs: [
-                  {
-                    internalType: "address",
-                    name: "spender",
-                    type: "address",
-                  },
-                  {
-                    internalType: "uint256",
-                    name: "amount",
-                    type: "uint256",
-                  },
-                ],
-                name: "approve",
-                outputs: [
-                  {
-                    internalType: "bool",
-                    name: "",
-                    type: "bool",
-                  },
-                ],
-                stateMutability: "nonpayable",
-                type: "function",
-              },
-            ],
-            address: USDC_ADDRESS as `0x${string}`,
-            functionName: "approve",
+          if (client) {
             // @ts-ignore
-            args: [contracts.GivingFundToken.address as `0x${string}`, BigInt(parseAmount)],
-          });
+            const approvalHash = await writeContractviem(client, {
+              abi: [approve_ABI],
+              address: USDC_ADDRESS as `0x${string}`,
+              functionName: "approve",
+              args: [contracts.GivingFundToken.address as `0x${string}`, BigInt(parseAmount)],
+            });
 
-          const approvalReceipt = await waitForTransactionReceipt(config, {
-            hash: approvalHash,
-          });
-          console.log("Approval confirmed", approvalReceipt);
+            const approvalReceipt = await waitForTransactionReceipt(config, {
+              hash: approvalHash,
+            });
+            console.log("Approval confirmed", approvalReceipt);
+          }
+          else {
+            // Await the approval hash first
+            const approvalHash = await writeContractAsync({
+              abi: [approve_ABI],
+              address: USDC_ADDRESS as `0x${string}`,
+              functionName: "approve",
+              args: [contracts.GivingFundToken.address as `0x${string}`, BigInt(parseAmount)],
+            });
+
+            // Now wait for the approval transaction to be confirmed
+            const approvalReceipt = await waitForTransactionReceipt(config, {
+              hash: approvalHash,
+            });
+            console.log("Approval confirmed", approvalReceipt);
+          }
         }
 
-        writeYourContractAsync({
-          address: contracts.GivingFundToken.address,
-          abi: contracts.GivingFundToken.abi,
-          functionName: "mint",
-          args: [parseAmount],
-        });
-
+        if (client) {
+          // @ts-ignore
+          await writeContractviem(client, {
+            address: contracts.GivingFundToken.address,
+            abi: contracts.GivingFundToken.abi,
+            functionName: "mint",
+            args: [parseAmount],
+          });
+        } else {
+          // Now proceed with the mint transaction
+          await writeContractAsync({
+            address: contracts.GivingFundToken.address,
+            abi: contracts.GivingFundToken.abi,
+            functionName: "mint",
+            args: [parseAmount],
+          });
+        }
+       
         console.log("Adding funds:", values);
         setIsAddMoreModalOpen(false);
         addMoreForm.resetFields();
@@ -167,7 +226,7 @@ export const AddMoreFundsModal = ({
               </div>
               <div className="border border-gray-200 rounded-lg p-4 hover:border-purple-300 transition-colors">
                 <Radio value="digital-wallet">
-                  <span className="text-gray-600">Digital Wallet</span>
+                  <span className="text-gray-600">Digital Wallet (${formatUnits(usdcAmount, 6)} USDC)</span>
                 </Radio>
               </div>
             </Space>

@@ -2,11 +2,35 @@ import { useEffect, useState } from "react";
 import { AddMoreFundsModal, BespokeGivingFundTokenModal, MatchingFundTokenModal } from "./_components";
 import { readContract } from "@wagmi/core";
 import { Button, Dropdown, Input, Table } from "antd";
-import { useAccount, useChainId, useConfig, useReadContract } from "wagmi";
-import { formatUnits } from "viem";
+import { useChainId, useConfig, useReadContract, useWriteContract } from "wagmi";
+import { formatUnits, parseUnits } from "viem";
 import { CalendarIcon, EllipsisVerticalIcon } from "@heroicons/react/24/outline";
 import deployedContracts from "../../contracts/deployedContracts";
 import { calculatePercentageFunded } from "../../utils/calculatePercentageFunded";
+import { useWalletAddress } from "../../hooks/useWalletAddress";
+import { writeContract as writeContractviem } from 'viem/actions';
+import { useSmartWallets } from '@privy-io/react-auth/smart-wallets';
+
+const USDC_ADDRESS = import.meta.env.VITE_USDC_ADDRESS;
+
+const mintUSCD_ABI = {
+  inputs: [
+    {
+      internalType: "address",
+      name: "to",
+      type: "address",
+    },
+    {
+      internalType: "uint256",
+      name: "amount",
+      type: "uint256",
+    },
+  ],
+  name: "mint",
+  outputs: [],
+  stateMutability: "nonpayable",
+  type: "function",
+};
 
 interface ReceivedToken {
   name: string;
@@ -30,7 +54,8 @@ interface FundDetails {
 const Overview = () => {
   const chainId = useChainId();
   const config = useConfig();
-  const { address } = useAccount();
+  const { address } = useWalletAddress();
+  const { client } = useSmartWallets();
 
   const contracts = deployedContracts[chainId as keyof typeof deployedContracts];
 
@@ -48,6 +73,9 @@ const Overview = () => {
     abi: contracts.GivingFundToken.abi,
     functionName: 'balanceOf',
     args: [address as `0x${string}`],
+    query: {
+      refetchInterval: 5000,
+    },
   }) as { data: bigint };
 
   const { data: bespokeFundTokenAddresses } = useReadContract({
@@ -55,6 +83,9 @@ const Overview = () => {
     abi: contracts.BespokeFundTokenFactory.abi,
     functionName: "getUserFunds",
     args: [address as `0x${string}`],
+    query: {
+      refetchInterval: 5000,
+    },
   });
 
   const { data: matchingFundTokenAddresses } = useReadContract({
@@ -62,7 +93,12 @@ const Overview = () => {
     abi: contracts.MatchingFundTokenFactory.abi,
     functionName: "getUserFunds",
     args: [address as `0x${string}`],
+    query: {
+      refetchInterval: 5000,
+    },
   });
+
+  const { writeContract: writeYourContractAsync } = useWriteContract();
 
   // Fetch detailed info for each fund
   useEffect(() => {
@@ -84,7 +120,7 @@ const Overview = () => {
             args: [fundAddress as `0x${string}`],
           });
 
-           const availableTokens = await readContract(config, {
+          const availableTokens = await readContract(config, {
             abi: [{
               inputs: [],
               name: "totalSupply",
@@ -108,8 +144,6 @@ const Overview = () => {
             functionName: "balanceOf",
             args: [fundAddress as `0x${string}`],
           });
-
-          console.log(fundedGFT, );
 
           details.push({
             address: fundAddress,
@@ -153,6 +187,31 @@ const Overview = () => {
             args: [fundAddress as `0x${string}`],
           });
 
+           const availableTokens = await readContract(config, {
+            abi: [{
+              inputs: [],
+              name: "totalSupply",
+              outputs: [
+                {
+                  internalType: "uint256",
+                  name: "",
+                  type: "uint256",
+                },
+              ],
+              stateMutability: "view",
+              type: "function",
+            }],
+            address: fundAddress as `0x${string}`,
+            functionName: "totalSupply",
+          });
+
+          const fundedGFT = await readContract(config, {
+            abi: deployedContracts[chainId].GivingFundToken.abi,
+            address: deployedContracts[chainId].GivingFundToken.address as `0x${string}`,
+            functionName: "balanceOf",
+            args: [fundAddress as `0x${string}`],
+          });
+
           details.push({
             address: fundAddress,
             creator: address || "",
@@ -160,8 +219,8 @@ const Overview = () => {
             symbol: response[2],
             createdAt: response[3],
             exists: true,
-            availableTokens: 0n,
-            percentageFunded: "0"
+            availableTokens: availableTokens,
+            percentageFunded: calculatePercentageFunded(fundedGFT, availableTokens),
           });
         }
 
@@ -216,13 +275,11 @@ const Overview = () => {
       title: "Donated Amount",
       dataIndex: "donatedAmount",
       key: "donatedAmount",
-      render: (val: number) => `$${0}`,
     },
     {
       title: "Transaction Pending Amount",
       dataIndex: "transactionPending",
       key: "transactionPending",
-      render: (val: number) => `$${0}`,
     },
   ];
 
@@ -237,7 +294,7 @@ const Overview = () => {
       title: "Available Tokens",
       dataIndex: "availableTokens",
       key: "availableTokens",
-      render: (val: number) => `$${val}`,
+      render: (val: bigint) => `$${formatUnits(val, 6)}`,
     },
     {
       title: "Percentage Funded",
@@ -249,13 +306,11 @@ const Overview = () => {
       title: "Donated Amount",
       dataIndex: "donatedAmount",
       key: "donatedAmount",
-      render: (val: number) => `$${0}`,
     },
     {
       title: "Transaction Pending Amount",
       dataIndex: "transactionPending",
       key: "transactionPending",
-      render: (val: number) => `$${0}`,
     },
     {
       title: "Matching Ratio",
@@ -305,6 +360,29 @@ const Overview = () => {
     { key: "gift", label: "Gift" },
   ];
 
+  const getTestUSDC = async () => {
+    try {
+      if (client) {
+        // @ts-ignore
+        await writeContractviem(client, {
+          abi: [mintUSCD_ABI],
+          address: USDC_ADDRESS,
+          functionName: "mint",
+          args: [address, parseUnits("100", 6)],
+        });
+      } else {
+        writeYourContractAsync({
+          abi: [mintUSCD_ABI],
+          address: USDC_ADDRESS,
+          functionName: "mint",
+          args: [address, parseUnits("100", 6)],
+        });
+      }
+    } catch (e) {
+      console.error("Error creating Bespoke Giving fund:", e);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -344,6 +422,13 @@ const Overview = () => {
                 onClick={() => setIsAddMoreModalOpen(true)}
               >
                 Add More
+              </Button>
+              <Button
+                type="primary"
+                className="bg-purple-600 border-0 hover:bg-purple-700 rounded-full px-6"
+                onClick={() => getTestUSDC()}
+              >
+                Get 100 Test USDC
               </Button>
             </div>
             <Dropdown menu={{ items: menuItems }} trigger={["click"]}>
@@ -495,6 +580,7 @@ const Overview = () => {
         setIsMatchingModalOpen={setIsMatchingModalOpen}
       />
 
+      {/* @ts-ignore */}
       <style jsx global>{`
         .custom-table .ant-table-thead > tr > th {
           background-color: #f9fafb;

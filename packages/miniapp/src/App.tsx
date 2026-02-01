@@ -1,10 +1,13 @@
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useEffect } from "react";
+import { HashRouter, Route, Routes } from 'react-router-dom';
 import { ConfigProvider } from "antd";
 import { useAccount, useConnect, useSignMessage } from "wagmi";
 
 import { themeConfig } from "./utils/themeConfig";
 import OverviewLayout from "./pages/overview/layout";
+import MyGivingFundLayout from "./pages/mygivingfund/layout";
+import Home from "./pages/Home";
 
 function App() {
   useEffect(() => {
@@ -13,7 +16,19 @@ function App() {
 
   return (
     <ConfigProvider theme={themeConfig}>
-      <OverviewLayout />
+      <HashRouter>
+        <Routes>
+          <Route
+            path="/mygivingfund"
+            element={<MyGivingFundLayout />} />
+          <Route
+            path="/overview"
+            element={<OverviewLayout />} />
+          <Route
+            path="/"
+            element={<Home />} />
+        </Routes>
+      </HashRouter>
       <ConnectMenu />
     </ConfigProvider>
   );

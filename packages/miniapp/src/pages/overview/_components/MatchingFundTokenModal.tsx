@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Button, DatePicker, Form, Input, Modal, Select, InputNumber, Checkbox } from "antd";
 import { useWriteContract } from "wagmi";
-import { formatUnits } from "viem";
+import { formatUnits, parseUnits } from "viem";
+import { writeContract as writeContractviem } from 'viem/actions';
+import { useSmartWallets } from '@privy-io/react-auth/smart-wallets';
 
 type MatchingFundTokeProps = {
   givingFundTokenAmount: bigint,
@@ -12,10 +14,13 @@ type MatchingFundTokeProps = {
 
 export const MatchingFundTokenModal = ({ givingFundTokenAmount, contracts, isMatchingModalOpen, setIsMatchingModalOpen }: MatchingFundTokeProps) => {
   const [matchingForm] = Form.useForm();
+   const { client } = useSmartWallets();
 
   const [amount, setAmount] = useState(0);
   const [fundingPercentage, setFundingPercentage] = useState(100);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string[]>([]);
+
+  const fundingRequired = (amount * fundingPercentage) / 100;
 
   const { writeContract: writeYourContractAsync } = useWriteContract();
 
@@ -25,12 +30,22 @@ export const MatchingFundTokenModal = ({ givingFundTokenAmount, contracts, isMat
         // Convert date to Unix timestamp (in seconds)
         const timestamp = values.expirationDate ? Math.floor(values.expirationDate.valueOf() / 1000) : 0;
 
-        writeYourContractAsync({
-          address: contracts.MatchingFundTokenFactory.address,
-          abi: contracts.MatchingFundTokenFactory.abi,
-          functionName: "createFund",
-          args: [values.tokenName, values.tokenSymbol, BigInt(timestamp)],
-        });
+        if (client) {
+          // @ts-ignore
+          await writeContractviem(client, {
+            address: contracts.MatchingFundTokenFactory.address,
+            abi: contracts.MatchingFundTokenFactory.abi,
+            functionName: "createFund",
+            args: [values.tokenName, values.tokenSymbol, parseUnits(amount?.toString(), 6), parseUnits(fundingRequired.toString(), 6), BigInt(timestamp)],
+          });
+        } else {
+          writeYourContractAsync({
+            address: contracts.MatchingFundTokenFactory.address,
+            abi: contracts.MatchingFundTokenFactory.abi,
+            functionName: "createFund",
+            args: [values.tokenName, values.tokenSymbol, parseUnits(amount?.toString(), 6), parseUnits(fundingRequired.toString(), 6), BigInt(timestamp)],
+          });
+        }
 
         console.log("Creating Matching Token:", values, timestamp);
         setIsMatchingModalOpen(false);
@@ -52,8 +67,6 @@ export const MatchingFundTokenModal = ({ givingFundTokenAmount, contracts, isMat
       setFundingPercentage(value);
     }
   };
-
-  const fundingRequired = (amount * fundingPercentage) / 100;
 
   return (
     <Modal

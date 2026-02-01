@@ -1,76 +1,92 @@
 import { useState } from "react";
-import { Button, Form, Input, Modal, Select, InputNumber, Checkbox, message } from "antd";
+import { Button, Form, Modal, Select, Checkbox, message } from "antd";
 import { useWriteContract } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
 import { writeContract as writeContractviem } from 'viem/actions';
 import { useSmartWallets } from '@privy-io/react-auth/smart-wallets';
 
-type BespokeGivingFundTokenProps = {
+interface FundDetails {
+  address: string;
+  creator: string;
+  name: string;
+  symbol: string;
+  createdAt: bigint;
+  exists: boolean;
+  availableTokens: bigint;
+  percentageFunded: string;
+  fundedGFT: bigint;
+}
+
+type IncreaseBespokeFundModalProps = {
+  selectedBespokeFund: FundDetails,
   givingFundTokenAmount: bigint,
   contracts: any;
-  isGivingModalOpen: boolean;
-  setIsGivingModalOpen: Function;
+  isModalOpen: boolean;
+  setIsModalOpen: Function;
 };
 
-export const BespokeGivingFundTokenModal = ({
+export const IncreaseBespokeFundModal = ({
+  selectedBespokeFund,
   givingFundTokenAmount,
   contracts,
-  isGivingModalOpen,
-  setIsGivingModalOpen,
-}: BespokeGivingFundTokenProps) => {
+  isModalOpen,
+  setIsModalOpen,
+}: IncreaseBespokeFundModalProps) => {
   const { client } = useSmartWallets();
   const [givingForm] = Form.useForm();
   const [messageApi] = message.useMessage();
   
-  const [amount, setAmount] = useState(0);
-  const [fundingPercentage, setFundingPercentage] = useState(100);
+  const [fundingRequired, setFundingRequired] = useState(0);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string[]>([]);
-
-  const fundingRequired = (amount * fundingPercentage) / 100;
 
   const { writeContract: writeYourContractAsync, error } = useWriteContract();
 
   const handleCreateGivingToken = () => {
     givingForm.validateFields().then(async (values) => {
       try {
+        console.log(fundingRequired.toString(), parseUnits(fundingRequired.toString(), 6));
         if (client) {
           // @ts-ignore
           await writeContractviem(client, {
-            address: contracts.BespokeFundTokenFactory.address,
+             address: contracts.BespokeFundTokenFactory.address,
             abi: contracts.BespokeFundTokenFactory.abi,
-            functionName: "createFund",
-            args: [values.tokenName, values.tokenSymbol, parseUnits(amount?.toString(), 6), parseUnits(fundingRequired.toString(), 6)],
+            functionName: "increaseFunding",
+            args: [parseUnits(fundingRequired.toString(), 6), selectedBespokeFund.address as `0x${string}`],
           });
         } else {
           writeYourContractAsync({
             address: contracts.BespokeFundTokenFactory.address,
             abi: contracts.BespokeFundTokenFactory.abi,
-            functionName: "createFund",
-            args: [values.tokenName, values.tokenSymbol, parseUnits(amount?.toString(), 6), parseUnits(fundingRequired.toString(), 6)],
+            functionName: "increaseFunding",
+            args: [parseUnits(fundingRequired.toString(), 6), selectedBespokeFund.address as `0x${string}`],
           });
         }
       } catch (e) {
-        console.error("Error creating Bespoke Giving fund:", e);
+        console.error("Error increasing funding for Bespoke Token:", e);
       }
-      console.log("Creating Giving Token:", {
+      console.log("Increase funding for Bespoke Token:", {
         ...values,
         paymentMethods: selectedPaymentMethod,
       });
-      setIsGivingModalOpen(false);
+      setIsModalOpen(false);
+      setFundingRequired(0);
       givingForm.resetFields();
       setSelectedPaymentMethod([]);
     });
   };
 
-  const handleAmountChange = (value: number | null) => {
-    if (value) {
-      setAmount(value);
-    }
-  };
-
   const handlePercentageChange = (value: number | null) => {
-    if (value) {
-      setFundingPercentage(value);
+    setFundingRequired(0);
+    if (value && Number(selectedBespokeFund?.percentageFunded) < value) {      
+      // Calculate the additional amount required
+      const currentFunded = Number(formatUnits(selectedBespokeFund.fundedGFT, 6));
+      const currentPercentage = Number(selectedBespokeFund.percentageFunded);
+      const targetPercentage = value;
+      
+      // Formula: additional amount = current funded amount × (increase in percentage / current percentage)
+      const additionalAmount = currentFunded * ((targetPercentage - currentPercentage) / currentPercentage);
+      
+      setFundingRequired(additionalAmount);
     }
   };
 
@@ -81,10 +97,11 @@ export const BespokeGivingFundTokenModal = ({
 
   return (
     <Modal
-      title="Giving Fund Token Name"
-      open={isGivingModalOpen}
+      title={selectedBespokeFund?.name}
+      open={isModalOpen}
       onCancel={() => {
-        setIsGivingModalOpen(false);
+        setIsModalOpen(false);
+        setFundingRequired(0);
         givingForm.resetFields();
         setSelectedPaymentMethod([]);
       }}
@@ -99,54 +116,16 @@ export const BespokeGivingFundTokenModal = ({
         layout="vertical"
         className="mt-6"
         initialValues={{
-          amount: 0,
-          fundingPercentage: 100,
-          nonprofitRecipients: "ALL",
+          fundingPercentage: selectedBespokeFund?.percentageFunded,
         }}
       >
         <Form.Item
-          name="tokenName"
-          rules={[{ required: true, message: "Please enter token name" }]}
-        >
-          <Input
-            placeholder="Enter token name"
-            size="large"
-            className="text-base"
-          />
-        </Form.Item>
-
-        <Form.Item
-          label="Token Symbol"
-          name="tokenSymbol"
-          rules={[{ required: true, message: "Please enter token symbol" }]}
-        >
-          <Input placeholder="Enter token symbol" size="large" />
-        </Form.Item>
-
-        <Form.Item
-          label={<span className="text-xl font-semibold">Amount</span>}
-          name="amount"
-          rules={[{ required: true, message: "Please enter amount" }]}
-        >
-          <InputNumber
-            size="large"
-            className="w-full text-xl font-semibold"
-            formatter={(value) =>
-              `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-            }
-            onChange={handleAmountChange}
-            value={amount}
-            min={0}
-          />
-        </Form.Item>
-
-        <Form.Item
-          label={<span className="text-xl font-semibold">Funding Percentage</span>}
+          label={<span className="text-xl font-semibold">Percentage Funded: {selectedBespokeFund?.percentageFunded}%</span>}
           name="fundingPercentage"
         >
           <div>
             <Select
-              defaultValue={100}
+              defaultValue={Number(selectedBespokeFund?.percentageFunded)}
               size="large"
               className="w-full mb-2"
               onChange={handlePercentageChange}
@@ -160,23 +139,6 @@ export const BespokeGivingFundTokenModal = ({
           <div className="text-gray-500 text-base">
             Funding Required: ${fundingRequired.toLocaleString()}
           </div>
-        </Form.Item>
-
-        <Form.Item
-          label={<span className="text-xl font-semibold">Nonprofit Recipients</span>}
-          name="nonprofitRecipients"
-        >
-          <Select
-            size="large"
-            className="w-full"
-            options={[
-              { value: "ALL", label: "ALL" },
-              { value: "Education", label: "Education" },
-              { value: "Health", label: "Health" },
-              { value: "Environment", label: "Environment" },
-              { value: "Arts", label: "Arts & Culture" },
-            ]}
-          />
         </Form.Item>
 
         <div className="mb-6">
@@ -228,7 +190,8 @@ export const BespokeGivingFundTokenModal = ({
           <Button
             size="large"
             onClick={() => {
-              setIsGivingModalOpen(false);
+              setIsModalOpen(false);
+              setFundingRequired(0);
               givingForm.resetFields();
               setSelectedPaymentMethod([]);
             }}
@@ -241,7 +204,7 @@ export const BespokeGivingFundTokenModal = ({
             className="bg-purple-600 border-0 hover:bg-purple-700"
             onClick={handleCreateGivingToken}
           >
-            Create Token
+            Confirm
           </Button>
         </div>
       </Form>

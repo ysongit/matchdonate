@@ -30,7 +30,7 @@ contract GivingFundToken {
 
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
-    event Minted(address indexed user, uint256 amount);
+    event Minted(address indexed user, uint256 amount, uint256 date);
     event Burned(address indexed recipient, uint256 amount);
     event Paused(address indexed by);
     event Unpaused(address indexed by);
@@ -82,7 +82,7 @@ contract GivingFundToken {
         totalSupply += amount;
         balanceOf[msg.sender] += amount;
 
-        emit Minted(msg.sender, amount);
+        emit Minted(msg.sender, amount, block.timestamp);
         emit Transfer(address(0), msg.sender, amount);
     }
 
@@ -98,7 +98,7 @@ contract GivingFundToken {
         totalSupply += amount;
         balanceOf[to] += amount;
 
-        emit Minted(to, amount);
+        emit Minted(to, amount, block.timestamp);
         emit Transfer(address(0), to, amount);
         return true;
     }
