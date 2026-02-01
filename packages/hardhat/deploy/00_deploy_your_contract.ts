@@ -28,7 +28,9 @@ const deployYourContract: DeployFunction = async function (hre: HardhatRuntimeEn
     log: true,
     autoMine: true,
   });
+
   const TestUSDCOwner = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+  // const TestUSDCOwner = "";
 
   const MockUSDC = await hre.ethers.getContract<Contract>("MockUSDC", deployer);
   console.log(`👋 Mint 10000000000 TEST USDC to: ${TestUSDCOwner}`, await MockUSDC.mint(TestUSDCOwner, 10000000000));
@@ -41,6 +43,7 @@ const deployYourContract: DeployFunction = async function (hre: HardhatRuntimeEn
   });
 
   const newOwner = "0x515567D486C8927f607C611a99a941c670975992";
+  //  const newOwner = "";
 
   const GivingFundToken = await hre.ethers.getContract<Contract>("GivingFundToken", deployer);
 
@@ -65,6 +68,13 @@ const deployYourContract: DeployFunction = async function (hre: HardhatRuntimeEn
   console.log(`👋 Authorize Minter : ${await BespokeFundTokenFactory.getAddress()}`, await GivingFundToken.authorizeMinter(await BespokeFundTokenFactory.getAddress()));
   console.log(`👋 Authorize Minter : ${await MatchingFundTokenFactory.getAddress()}`, await GivingFundToken.authorizeMinter(await MatchingFundTokenFactory.getAddress()));
   console.log(`👋 Transfer Ownership to : ${newOwner}`, await GivingFundToken.transferOwnership(newOwner));
+
+  await deploy("GiftBox", {
+    from: deployer,
+    args: [],
+    log: true,
+    autoMine: true,
+  });
 };
 
 export default deployYourContract;
