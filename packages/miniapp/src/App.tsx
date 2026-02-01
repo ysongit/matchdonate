@@ -7,6 +7,7 @@ import { useAccount, useConnect, useSignMessage } from "wagmi";
 import { themeConfig } from "./utils/themeConfig";
 import OverviewLayout from "./pages/overview/layout";
 import MyGivingFundLayout from "./pages/mygivingfund/layout";
+import SendGiftPageLayout from "./pages/sendgift/layout";
 import Home from "./pages/Home";
 
 function App() {
@@ -18,6 +19,9 @@ function App() {
     <ConfigProvider theme={themeConfig}>
       <HashRouter>
         <Routes>
+          <Route
+            path="/gifting"
+            element={<SendGiftPageLayout />} />
           <Route
             path="/mygivingfund"
             element={<MyGivingFundLayout />} />
