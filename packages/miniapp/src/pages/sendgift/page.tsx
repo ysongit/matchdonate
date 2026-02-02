@@ -1,6 +1,23 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input, Checkbox, Select, Button } from 'antd';
 import { PencilIcon, EyeIcon } from '@heroicons/react/24/solid';
+import { useChainId, useConfig, useReadContract, useWriteContract } from 'wagmi';
+import { readContract, waitForTransactionReceipt } from "@wagmi/core";
+import deployedContracts from "../../contracts/deployedContracts";
+import { useWalletAddress } from "../../hooks/useWalletAddress";
+import { parseUnits } from 'viem';
+import { useSmartWallets } from '@privy-io/react-auth/smart-wallets';
+
+interface FundDetails {
+  address: string;
+  creator: string;
+  name: string;
+  symbol: string;
+  createdAt: bigint;
+  exists: boolean;
+  availableTokens: bigint;
+  fundedGFT: bigint;
+}
 
 const { TextArea } = Input;
 
@@ -17,7 +34,40 @@ interface FormData {
   amount: string;
 }
 
+
+const approve_ABI =  {
+  inputs: [
+    {
+      internalType: "address",
+      name: "spender",
+      type: "address",
+    },
+    {
+      internalType: "uint256",
+      name: "amount",
+      type: "uint256",
+    },
+  ],
+  name: "approve",
+  outputs: [
+    {
+      internalType: "bool",
+      name: "",
+      type: "bool",
+    },
+  ],
+  stateMutability: "nonpayable",
+  type: "function",
+}
+
 const SendGift: React.FC = () => {
+  const chainId = useChainId();
+  const config = useConfig();
+  const { address } = useWalletAddress();
+  const { client } = useSmartWallets();
+
+  const contracts = deployedContracts[chainId as keyof typeof deployedContracts];
+  
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [formData, setFormData] = useState<FormData>({
     senderName: '',
@@ -42,6 +92,202 @@ So I'm sending you a [$100] charity fund gift to donate wherever your heart tell
 Thank you for being the kind of person you are. Here's to another year of you doing good in the world.`
   );
 
+  const [bespokeFundsDetails, setBespokeFundsDetails] = useState<FundDetails[]>([]);
+  const [isLoadingBespokeDetails, setIsBespokeLoadingDetails] = useState(false);
+  const [selectedBespokeFund, setSelectedBespokeFund] = useState<FundDetails>();
+  const [matchingFundsDetails, setMatchingFundsDetails] = useState<FundDetails[]>([]);
+  const [isMatchingLoadingDetails, setIsMatchingLoadingDetails] = useState(false);
+  
+
+  const { data: bespokeFundTokenAddresses } = useReadContract({
+    address: contracts.BespokeFundTokenFactory.address,
+    abi: contracts.BespokeFundTokenFactory.abi,
+    functionName: "getUserFunds",
+    args: [address as `0x${string}`],
+  });
+
+  const { data: matchingFundTokenAddresses } = useReadContract({
+    address: contracts.MatchingFundTokenFactory.address,
+    abi: contracts.MatchingFundTokenFactory.abi,
+    functionName: "getUserFunds",
+    args: [address as `0x${string}`],
+  });
+
+  const { writeContractAsync, error } = useWriteContract();
+
+  useEffect(() => {
+    if (!bespokeFundTokenAddresses || bespokeFundTokenAddresses.length === 0) {
+      setBespokeFundsDetails([]);
+      return;
+    }
+
+    const fetchAllFundDetails = async () => {
+      setIsBespokeLoadingDetails(true);
+      try {
+        const details: FundDetails[] = [];
+
+        for (const fundAddress of bespokeFundTokenAddresses) {
+          const response = await readContract(config, {
+            abi: deployedContracts[chainId].BespokeFundTokenFactory.abi,
+            address: deployedContracts[chainId].BespokeFundTokenFactory.address as `0x${string}`,
+            functionName: "getFundInfo",
+            args: [fundAddress as `0x${string}`],
+          });
+
+          const availableTokens = await readContract(config, {
+            abi: [{
+              inputs: [],
+              name: "totalSupply",
+              outputs: [
+                {
+                  internalType: "uint256",
+                  name: "",
+                  type: "uint256",
+                },
+              ],
+              stateMutability: "view",
+              type: "function",
+            }],
+            address: fundAddress as `0x${string}`,
+            functionName: "totalSupply",
+          });
+
+          const fundedGFT = await readContract(config, {
+            abi: deployedContracts[chainId].GivingFundToken.abi,
+            address: deployedContracts[chainId].GivingFundToken.address as `0x${string}`,
+            functionName: "balanceOf",
+            args: [fundAddress as `0x${string}`],
+          });
+
+          details.push({
+            address: fundAddress,
+            creator: address || "",
+            name: response[1],
+            symbol: response[2],
+            createdAt: response[3],
+            exists: true,
+            availableTokens: availableTokens,
+            fundedGFT: fundedGFT
+          });
+        }
+
+        setBespokeFundsDetails(details);
+      } catch (error) {
+        console.error("Error fetching fund details:", error);
+      } finally {
+        setIsBespokeLoadingDetails(false);
+      }
+    };
+
+    fetchAllFundDetails();
+  }, [bespokeFundTokenAddresses, address]);
+
+  useEffect(() => {
+    if (!matchingFundTokenAddresses || matchingFundTokenAddresses.length === 0) {
+      setBespokeFundsDetails([]);
+      return;
+    }
+
+    const fetchAllMatchingFundDetails = async () => {
+      setIsMatchingLoadingDetails(true);
+      try {
+        const details: FundDetails[] = [];
+
+        for (const fundAddress of matchingFundTokenAddresses) {
+          const response = await readContract(config, {
+            abi: deployedContracts[chainId].MatchingFundTokenFactory.abi,
+            address: deployedContracts[chainId].MatchingFundTokenFactory.address as `0x${string}`,
+            functionName: "getFundInfo",
+            args: [fundAddress as `0x${string}`],
+          });
+
+          const availableTokens = await readContract(config, {
+            abi: [{
+              inputs: [],
+              name: "totalSupply",
+              outputs: [
+                {
+                  internalType: "uint256",
+                  name: "",
+                  type: "uint256",
+                },
+              ],
+              stateMutability: "view",
+              type: "function",
+            }],
+            address: fundAddress as `0x${string}`,
+            functionName: "totalSupply",
+          });
+
+          console.log(response);
+          const fundedGFT = await readContract(config, {
+            abi: deployedContracts[chainId].GivingFundToken.abi,
+            address: deployedContracts[chainId].GivingFundToken.address as `0x${string}`,
+            functionName: "balanceOf",
+            args: [fundAddress as `0x${string}`],
+          });
+
+          details.push({
+            address: fundAddress,
+            creator: address || "",
+            name: response[1],
+            symbol: response[2],
+            createdAt: response[4],
+            exists: true,
+            availableTokens: availableTokens,
+            fundedGFT: fundedGFT
+          });
+        }
+
+        setMatchingFundsDetails(details);
+      } catch (error) {
+        console.error("Error fetching fund details:", error);
+      } finally {
+        setIsMatchingLoadingDetails(false);
+      }
+    };
+
+    fetchAllMatchingFundDetails();
+  }, [matchingFundTokenAddresses, address]);
+
+  async function getApproveAmount(fundToken: string): Promise<number> {
+    // read from the chain to see if we have approved enough token
+    const response = await readContract(config, {
+      abi: [
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "",
+              type: "address",
+            },
+            {
+              internalType: "address",
+              name: "",
+              type: "address",
+            },
+          ],
+          name: "allowance",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+      ],
+      address: fundToken as `0x${string}`,
+      functionName: "allowance",
+      // @ts-ignore
+      args: [address, contracts.GiftBox.address as `0x${string}`],
+    });
+    // @ts-ignore
+    return response as number;
+  }
+
   const handleInputChange = (field: keyof FormData, value: string): void => {
     setFormData((prev) => ({
       ...prev,
@@ -58,6 +304,67 @@ Thank you for being the kind of person you are. Here's to another year of you do
       },
     }));
   };
+
+  const handleSendingGift = async () => {
+    console.log(formData);
+    try {
+      const approvedAmount = await getApproveAmount(formData.fundToken);
+      console.log(approvedAmount);
+
+      const parseAmount = parseUnits(formData.amount, 6);
+
+      if (approvedAmount < parseAmount) {
+        if (client) {
+          // @ts-ignore
+          const approvalHash = await writeContractviem(client, {
+            abi: [approve_ABI],
+            address: formData.fundToken as `0x${string}`,
+            functionName: "approve",
+            args: [contracts.GiftBox.address as `0x${string}`, BigInt(parseAmount)],
+          });
+
+          const approvalReceipt = await waitForTransactionReceipt(config, {
+            hash: approvalHash,
+          });
+          console.log("Approval confirmed", approvalReceipt);
+        }
+        else {
+          // Await the approval hash first
+          const approvalHash = await writeContractAsync({
+            abi: [approve_ABI],
+            address: formData.fundToken as `0x${string}`,
+            functionName: "approve",
+            args: [contracts.GiftBox.address as `0x${string}`, BigInt(parseAmount)],
+          });
+
+          // Now wait for the approval transaction to be confirmed
+          const approvalReceipt = await waitForTransactionReceipt(config, {
+            hash: approvalHash,
+          });
+          console.log("Approval confirmed", approvalReceipt);
+        }
+      }
+
+      if (client) {
+        // @ts-ignore
+        await writeContractviem(client, {
+          address: contracts.GiftBox.address,
+          abi: contracts.GiftBox.abi,
+          functionName: "createGift",
+          args: [formData.fundToken, parseAmount, "test", "Test"],
+        });
+      } else {
+        await writeContractAsync({
+          address: contracts.GiftBox.address,
+          abi: contracts.GiftBox.abi,
+          functionName: "createGift",
+          args: [formData.fundToken, parseAmount, "test", "Test"],
+        });
+      }
+    } catch (e) {
+      console.error("Error sending gift:", e);
+    }
+  }
 
   const displayRecipientName = formData.recipientName || 'RECIPIENT NAME';
   const displaySenderName = formData.senderName || 'Sender Name';
@@ -169,9 +476,12 @@ Thank you for being the kind of person you are. Here's to another year of you do
                   style={{ borderRadius: '24px' }}
                   dropdownStyle={{ borderRadius: '12px' }}
                 >
-                  <Select.Option value="token1">Fund Token 1</Select.Option>
-                  <Select.Option value="token2">Fund Token 2</Select.Option>
-                  <Select.Option value="token3">Fund Token 3</Select.Option>
+                  {bespokeFundsDetails?.map(bespokeFund => (
+                    <Select.Option value={bespokeFund?.address}>{bespokeFund?.name}</Select.Option>
+                  ))}
+                  {matchingFundsDetails?.map(matchingFund => (
+                    <Select.Option value={matchingFund?.address}>{matchingFund?.name}</Select.Option>
+                  ))}
                 </Select>
                 <Input
                   placeholder="Amount"
@@ -194,6 +504,7 @@ Thank you for being the kind of person you are. Here's to another year of you do
                   border: 'none',
                   borderRadius: '32px',
                 }}
+                onClick={handleSendingGift}
               >
                 Send
               </Button>
