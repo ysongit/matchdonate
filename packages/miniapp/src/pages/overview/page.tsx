@@ -379,6 +379,29 @@ const Overview = () => {
         });
       }
     } catch (e) {
+      console.error("Error getting test USDC", e);
+    }
+  }
+
+   const handleClaimGift = async () => {
+    try {
+      if (client) {
+        // @ts-ignore
+        await writeContractviem(client, {
+          address: contracts.GiftBox.address,
+          abi: contracts.GiftBox.abi,
+          functionName: "claimGift",
+          args: [giftCode],
+        });
+      } else {
+        writeYourContractAsync({
+          address: contracts.GiftBox.address,
+          abi: contracts.GiftBox.abi,
+          functionName: "claimGift",
+          args: [giftCode],
+        });
+      }
+    } catch (e) {
       console.error("Error creating Bespoke Giving fund:", e);
     }
   }
@@ -552,6 +575,7 @@ const Overview = () => {
               type="primary"
               size="large"
               className="bg-gradient-to-r from-purple-500 to-purple-600 border-0 hover:from-purple-600 hover:to-purple-700 px-8"
+              onClick={() => handleClaimGift()}
             >
               Redeem
             </Button>

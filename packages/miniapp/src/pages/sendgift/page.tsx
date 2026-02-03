@@ -7,6 +7,7 @@ import deployedContracts from "../../contracts/deployedContracts";
 import { useWalletAddress } from "../../hooks/useWalletAddress";
 import { parseUnits } from 'viem';
 import { useSmartWallets } from '@privy-io/react-auth/smart-wallets';
+import { generateRedeemCode } from '../../utils/generateRedeemCode';
 
 interface FundDetails {
   address: string;
@@ -97,8 +98,8 @@ Thank you for being the kind of person you are. Here's to another year of you do
   const [selectedBespokeFund, setSelectedBespokeFund] = useState<FundDetails>();
   const [matchingFundsDetails, setMatchingFundsDetails] = useState<FundDetails[]>([]);
   const [isMatchingLoadingDetails, setIsMatchingLoadingDetails] = useState(false);
+  const [redeemCode, setRedeemCode] = useState(generateRedeemCode());
   
-
   const { data: bespokeFundTokenAddresses } = useReadContract({
     address: contracts.BespokeFundTokenFactory.address,
     abi: contracts.BespokeFundTokenFactory.abi,
@@ -351,16 +352,18 @@ Thank you for being the kind of person you are. Here's to another year of you do
           address: contracts.GiftBox.address,
           abi: contracts.GiftBox.abi,
           functionName: "createGift",
-          args: [formData.fundToken, parseAmount, "test", "Test"],
+          args: [formData.fundToken, parseAmount, redeemCode, "Test"],
         });
       } else {
         await writeContractAsync({
           address: contracts.GiftBox.address,
           abi: contracts.GiftBox.abi,
           functionName: "createGift",
-          args: [formData.fundToken, parseAmount, "test", "Test"],
+          args: [formData.fundToken, parseAmount, redeemCode, "Test"],
         });
       }
+
+      setRedeemCode(generateRedeemCode());
     } catch (e) {
       console.error("Error sending gift:", e);
     }
@@ -592,7 +595,7 @@ Thank you for being the kind of person you are. Here's to another year of you do
             <div className="text-gray-600 text-sm space-y-2 mt-2">
               <p>Generosity inspired by ZZZ's Giving Fund</p>
               <p>
-                Use redemption code "<span className="font-bold">xxxxx</span>" to redeem your gift
+                Use redemption code "<span className="font-bold">{redeemCode}</span>" to redeem your gift
                 amount on www.yyyyy.com
               </p>
             </div>
