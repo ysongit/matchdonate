@@ -24,7 +24,8 @@ contract GiftBox {
         address claimedBy;
         uint256 createdAt;
         uint256 claimedAt;
-        string message; // Optional message from sender
+        string tokenName;
+        uint8 tokenType;
     }
     
     mapping(uint256 => Gift) public gifts;
@@ -37,7 +38,7 @@ contract GiftBox {
         address indexed sender,
         address indexed tokenAddress,
         uint256 amount,
-        string message,
+        uint8 tokenType,
         uint256 timestamp
     );
     
@@ -80,13 +81,13 @@ contract GiftBox {
      * @param tokenAddress Address of the Bespoke or Matching Fund Token
      * @param amount Amount of tokens to gift
      * @param redeemCode Secret code that recipient will use (should be generated off-chain)
-     * @param message Optional message for the recipient
+     * @param tokenType 1 for Bespoke Fund Token, 2 for Matching Fund Token
      */
     function createGift(
         address tokenAddress,
         uint256 amount,
         string memory redeemCode,
-        string memory message
+        uint8 tokenType
     ) external whenNotPaused returns (uint256) {
         require(tokenAddress != address(0), "Invalid token address");
         require(amount > 0, "Amount must be > 0");
@@ -102,6 +103,8 @@ contract GiftBox {
         );
         
         uint256 giftId = nextGiftId++;
+
+        IERC20 token = IERC20(tokenAddress);
         
         gifts[giftId] = Gift({
             giftId: giftId,
@@ -113,13 +116,14 @@ contract GiftBox {
             claimedBy: address(0),
             createdAt: block.timestamp,
             claimedAt: 0,
-            message: message
+            tokenName: token.name(),
+            tokenType: tokenType
         });
         
         codeToGiftId[codeHash] = giftId;
         senderGifts[msg.sender].push(giftId);
         
-        emit GiftCreated(giftId, msg.sender, tokenAddress, amount, message, block.timestamp);
+        emit GiftCreated(giftId, msg.sender, tokenAddress, amount, tokenType, block.timestamp);
         
         return giftId;
     }
@@ -192,7 +196,7 @@ contract GiftBox {
         address claimedBy,
         uint256 createdAt,
         uint256 claimedAt,
-        string memory message
+        string memory tokenName
     ) {
         Gift memory gift = gifts[giftId];
         require(gift.giftId != 0, "Gift does not exist");
@@ -205,7 +209,7 @@ contract GiftBox {
             gift.claimedBy,
             gift.createdAt,
             gift.claimedAt,
-            gift.message
+            gift.tokenName
         );
     }
     
@@ -298,7 +302,7 @@ contract GiftBox {
         uint256[] memory amounts,
         bool[] memory claimed,
         address[] memory claimedBy,
-        string[] memory messages
+        string[] memory tokenNames
     ) {
         uint256 count = giftIds.length;
         
@@ -307,7 +311,7 @@ contract GiftBox {
         amounts = new uint256[](count);
         claimed = new bool[](count);
         claimedBy = new address[](count);
-        messages = new string[](count);
+        tokenNames = new string[](count);
         
         for (uint256 i = 0; i < count; i++) {
             Gift memory gift = gifts[giftIds[i]];
@@ -317,10 +321,10 @@ contract GiftBox {
             amounts[i] = gift.amount;
             claimed[i] = gift.claimed;
             claimedBy[i] = gift.claimedBy;
-            messages[i] = gift.message;
+            tokenNames[i] = gift.tokenName;
         }
         
-        return (senders, tokenAddresses, amounts, claimed, claimedBy, messages);
+        return (senders, tokenAddresses, amounts, claimed, claimedBy, tokenNames);
     }
     
     /**

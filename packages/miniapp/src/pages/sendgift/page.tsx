@@ -352,14 +352,14 @@ Thank you for being the kind of person you are. Here's to another year of you do
           address: contracts.GiftBox.address,
           abi: contracts.GiftBox.abi,
           functionName: "createGift",
-          args: [formData.fundToken, parseAmount, redeemCode, "Test"],
+          args: [formData.fundToken, parseAmount, redeemCode, 1],
         });
       } else {
         await writeContractAsync({
           address: contracts.GiftBox.address,
           abi: contracts.GiftBox.abi,
           functionName: "createGift",
-          args: [formData.fundToken, parseAmount, redeemCode, "Test"],
+          args: [formData.fundToken, parseAmount, redeemCode, 1],
         });
       }
 
