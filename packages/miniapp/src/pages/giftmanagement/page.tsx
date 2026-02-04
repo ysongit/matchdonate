@@ -1,66 +1,141 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from "react-router-dom";
+import { useChainId, useConfig, useReadContract } from "wagmi";
+import { readContract } from "@wagmi/core";
 import { Input, Button, Table } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { MagnifyingGlassIcon, GiftIcon, EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
+import deployedContracts from "../../contracts/deployedContracts";
+import { useWalletAddress } from "../../hooks/useWalletAddress";
+import { formatUnits } from 'viem';
 
 interface GiftCard {
   key: string;
   recipient: string;
   cardTitle: string;
-  createdDate: string;
-  giftAmount: number;
+  createdDate: bigint;
+  giftAmount: bigint;
   marketingTag: string;
   status: 'NOT SENT' | 'RECEIVED' | 'PENDING';
 }
 
 const GiftManagement: React.FC = () => {
   const router = useNavigate();
+  const chainId = useChainId();
+  const config = useConfig();
+  const { address } = useWalletAddress();
 
   const [activeTab, setActiveTab] = useState<string>('created');
   const [searchValue, setSearchValue] = useState<string>('');
+  const [createdGifts, setCreatedGifts] = useState<GiftCard[]>([]);
+  const [receivedGifts, setReceivedGifts] = useState<GiftCard[]>([]);
+  const [isReceivedGiftsLoading, setIsReceivedGiftsLoading] = useState(false);
 
-  const createdGifts: GiftCard[] = [
-    {
-      key: '1',
-      recipient: 'Ray Widwan',
-      cardTitle: 'Greeting',
-      createdDate: 'Jan 20, 2025',
-      giftAmount: 500,
-      marketingTag: 'Employee Welcome',
-      status: 'NOT SENT',
+  const { data: createdGiftIds } = useReadContract({
+    address: deployedContracts[chainId].GiftBox.address as `0x${string}`,
+    abi: deployedContracts[chainId].GiftBox.abi,
+    functionName: "getSentGifts",
+    args: [address as `0x${string}`],
+    query: {
+      refetchInterval: 5000,
     },
-    {
-      key: '2',
-      recipient: 'Daisy Widwan',
-      cardTitle: 'Yay, New Job',
-      createdDate: 'Jan 10, 2024',
-      giftAmount: 1000,
-      marketingTag: 'Good Job',
-      status: 'RECEIVED',
-    },
-    {
-      key: '3',
-      recipient: 'J.J',
-      cardTitle: 'Happy Beeday',
-      createdDate: 'Jan 1, 2023',
-      giftAmount: 1000,
-      marketingTag: 'Birthday',
-      status: 'RECEIVED',
-    },
-  ];
+  });
 
-  const receivedGifts: GiftCard[] = [
-    {
-      key: '1',
-      recipient: 'You',
-      cardTitle: 'Welcome Gift',
-      createdDate: 'Feb 1, 2025',
-      giftAmount: 250,
-      marketingTag: 'Welcome',
-      status: 'RECEIVED',
+  const { data: receiveGiftIds } = useReadContract({
+    address: deployedContracts[chainId].GiftBox.address as `0x${string}`,
+    abi: deployedContracts[chainId].GiftBox.abi,
+    functionName: "getClaimedGifts",
+    args: [address as `0x${string}`],
+    query: {
+      refetchInterval: 5000,
     },
-  ];
+  });
+
+    useEffect(() => {
+    if (!createdGiftIds || createdGiftIds.length === 0) {
+      setReceivedGifts([]);
+      return;
+    }
+
+    const fetchAllCreatedGiftDetails = async () => {
+      setIsReceivedGiftsLoading(true);
+      try {
+        const details: GiftCard[] = [];
+
+        for (const id of createdGiftIds) {
+          const response = await readContract(config, {
+            abi: deployedContracts[chainId].GiftBox.abi,
+            address: deployedContracts[chainId].GiftBox.address as `0x${string}`,
+            functionName: "getGift",
+            args: [BigInt(id)],
+          });
+
+          console.log(response)
+
+          details.push({
+            key: id?.toString(),
+            recipient: response[0],
+            cardTitle: "",
+            createdDate: response[5],
+            giftAmount: response[2],
+            marketingTag: "",
+            status: response[3] ? "RECEIVED" : "PENDING",
+          });
+        }
+
+        setCreatedGifts(details);
+      } catch (error) {
+        console.error("Error fetching created gift details:", error);
+      } finally {
+        setIsReceivedGiftsLoading(false);
+      }
+    };
+
+    fetchAllCreatedGiftDetails();
+  }, [createdGiftIds, address]);
+
+  useEffect(() => {
+    if (!receiveGiftIds || receiveGiftIds.length === 0) {
+      setReceivedGifts([]);
+      return;
+    }
+
+    const fetchAllReceiveGiftDetails = async () => {
+      setIsReceivedGiftsLoading(true);
+      try {
+        const details: GiftCard[] = [];
+
+        for (const id of receiveGiftIds) {
+          const response = await readContract(config, {
+            abi: deployedContracts[chainId].GiftBox.abi,
+            address: deployedContracts[chainId].GiftBox.address as `0x${string}`,
+            functionName: "getGift",
+            args: [BigInt(id)],
+          });
+
+          console.log(response)
+
+          details.push({
+            key: id?.toString(),
+            recipient: response[0],
+            cardTitle: "",
+            createdDate: response[5],
+            giftAmount: response[2],
+            marketingTag: "",
+            status: response[3] ? "RECEIVED" : "PENDING",
+          });
+        }
+
+        setReceivedGifts(details);
+      } catch (error) {
+        console.error("Error fetching received gift details:", error);
+      } finally {
+        setIsReceivedGiftsLoading(false);
+      }
+    };
+
+    fetchAllReceiveGiftDetails();
+  }, [receiveGiftIds, address]);
 
   const columns: ColumnsType<GiftCard> = [
     {
@@ -85,7 +160,7 @@ const GiftManagement: React.FC = () => {
       title: 'Gift Amount',
       dataIndex: 'giftAmount',
       key: 'giftAmount',
-      render: (amount: number) => <span className="text-gray-700">{amount.toLocaleString()}</span>,
+      render: (amount: bigint) => <span className="text-gray-700">{formatUnits(amount, 6)}</span>,
     },
     {
       title: 'Marketing Tag',
@@ -224,6 +299,7 @@ const GiftManagement: React.FC = () => {
                 pagination={false}
                 className="gift-table"
                 rowClassName={(_, index) => (index % 2 === 0 ? 'bg-gray-50' : 'bg-white')}
+                loading={isReceivedGiftsLoading}
               />
             </div>
 
