@@ -18,6 +18,7 @@ interface FundDetails {
   exists: boolean;
   availableTokens: bigint;
   fundedGFT: bigint;
+  tokenType: number;
 }
 
 const { TextArea } = Input;
@@ -33,6 +34,7 @@ interface FormData {
   };
   fundToken: string;
   amount: string;
+  tokenType: number;
 }
 
 
@@ -81,6 +83,7 @@ const SendGift: React.FC = () => {
     },
     fundToken: '',
     amount: '',
+    tokenType: 0
   });
 
   const [editableMessage, setEditableMessage] = useState<string>(
@@ -168,7 +171,8 @@ Thank you for being the kind of person you are. Here's to another year of you do
             createdAt: response[3],
             exists: true,
             availableTokens: availableTokens,
-            fundedGFT: fundedGFT
+            fundedGFT: fundedGFT,
+            tokenType: 1
           });
         }
 
@@ -236,7 +240,8 @@ Thank you for being the kind of person you are. Here's to another year of you do
             createdAt: response[4],
             exists: true,
             availableTokens: availableTokens,
-            fundedGFT: fundedGFT
+            fundedGFT: fundedGFT,
+            tokenType: 2
           });
         }
 
@@ -296,6 +301,15 @@ Thank you for being the kind of person you are. Here's to another year of you do
     }));
   };
 
+  const handleSelectTokenChange = (value: string, option: any): void => {
+    console.log(value, option?.label?.tokenType)
+    setFormData((prev) => ({
+      ...prev,
+      ["fundToken"]: value,
+      ["tokenType"]: option?.label?.tokenType,
+    }));
+  };
+
   const handleDeliveryMethodChange = (method: 'email' | 'text'): void => {
     setFormData((prev) => ({
       ...prev,
@@ -321,7 +335,7 @@ Thank you for being the kind of person you are. Here's to another year of you do
             abi: [approve_ABI],
             address: formData.fundToken as `0x${string}`,
             functionName: "approve",
-            args: [contracts.GiftBox.address as `0x${string}`, BigInt(parseAmount)],
+            args: [deployedContracts[chainId].GiftBox.address as `0x${string}`, BigInt(parseAmount)],
           });
 
           const approvalReceipt = await waitForTransactionReceipt(config, {
@@ -349,17 +363,17 @@ Thank you for being the kind of person you are. Here's to another year of you do
       if (client) {
         // @ts-ignore
         await writeContractviem(client, {
-          address: contracts.GiftBox.address,
-          abi: contracts.GiftBox.abi,
+          address: deployedContracts[chainId].GiftBox.address,
+          abi: deployedContracts[chainId].GiftBox.abi,
           functionName: "createGift",
-          args: [formData.fundToken, parseAmount, redeemCode, 1],
+          args: [formData.fundToken, parseAmount, redeemCode, formData.tokenType],
         });
       } else {
         await writeContractAsync({
-          address: contracts.GiftBox.address,
-          abi: contracts.GiftBox.abi,
+          address: deployedContracts[chainId].GiftBox.address,
+          abi: deployedContracts[chainId].GiftBox.abi,
           functionName: "createGift",
-          args: [formData.fundToken, parseAmount, redeemCode, 1],
+          args: [formData.fundToken, parseAmount, redeemCode, formData.tokenType],
         });
       }
 
@@ -474,16 +488,16 @@ Thank you for being the kind of person you are. Here's to another year of you do
                 <Select
                   placeholder="Fund Token"
                   value={formData.fundToken || undefined}
-                  onChange={(value) => handleInputChange('fundToken', value)}
+                  onChange={handleSelectTokenChange}
                   className="flex-1 h-12"
                   style={{ borderRadius: '24px' }}
                   dropdownStyle={{ borderRadius: '12px' }}
                 >
                   {bespokeFundsDetails?.map(bespokeFund => (
-                    <Select.Option value={bespokeFund?.address}>{bespokeFund?.name}</Select.Option>
+                    <Select.Option label={bespokeFund} value={bespokeFund?.address}>{bespokeFund?.name}</Select.Option>
                   ))}
                   {matchingFundsDetails?.map(matchingFund => (
-                    <Select.Option value={matchingFund?.address}>{matchingFund?.name}</Select.Option>
+                    <Select.Option label={matchingFund} value={matchingFund?.address}>{matchingFund?.name}</Select.Option>
                   ))}
                 </Select>
                 <Input
