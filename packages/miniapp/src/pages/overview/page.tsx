@@ -270,7 +270,7 @@ const Overview = () => {
 
           details.push({
             name: response[7],
-            type: "Bespoke",
+            type: response[8] === 1 ? "Bespoke" : "Matching",
             from: response[0],
             matchingRatio: "n/a",
             tokenAmount: response[2]

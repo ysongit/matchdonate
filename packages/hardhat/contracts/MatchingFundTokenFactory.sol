@@ -79,10 +79,7 @@ contract MatchingFundTokenFactory {
         require(expirationDate > block.timestamp, "Expiration must be in future");
 
         // Burn GF tokens from the creator
-        require(
-            IGivingFundToken(gfToken).burn(msg.sender, fundAmount),
-            "GF burn failed"
-        );
+        require(IGivingFundToken(gfToken).burn(msg.sender, fundAmount), "GF burn failed");
 
         // Deploy new matching fund token
         MatchingFundToken newFund = new MatchingFundToken(
@@ -97,16 +94,13 @@ contract MatchingFundTokenFactory {
         address fundAddress = address(newFund);
 
         // Mint GF tokens to the new fund contract to back the matching tokens
-        require(
-            IGivingFundToken(gfToken).mintTo(fundAddress, fundAmount),
-            "GF mint failed"
-        );
+        require(IGivingFundToken(gfToken).mintTo(fundAddress, fundAmount), "GF mint failed");
 
         // Track the fund
         userFunds[msg.sender].push(fundAddress);
         allFunds.push(fundAddress);
         isFund[fundAddress] = true;
-        
+
         fundInfo[fundAddress] = FundInfo({
             fundAddress: fundAddress,
             creator: msg.sender,
@@ -165,14 +159,20 @@ contract MatchingFundTokenFactory {
      * @dev Get detailed info about a fund
      * @param fundAddress Address of the fund
      */
-    function getFundInfo(address fundAddress) external view returns (
-        address creator,
-        string memory name,
-        string memory symbol,
-        uint256 expirationDate,
-        uint256 createdAt,
-        bool exists
-    ) {
+    function getFundInfo(
+        address fundAddress
+    )
+        external
+        view
+        returns (
+            address creator,
+            string memory name,
+            string memory symbol,
+            uint256 expirationDate,
+            uint256 createdAt,
+            bool exists
+        )
+    {
         FundInfo memory info = fundInfo[fundAddress];
         return (info.creator, info.name, info.symbol, info.expirationDate, info.createdAt, info.exists);
     }
@@ -192,25 +192,25 @@ contract MatchingFundTokenFactory {
     function getActiveFunds(address user) external view returns (address[] memory) {
         address[] memory userFundsList = userFunds[user];
         uint256 activeCount = 0;
-        
+
         // Count active funds
         for (uint i = 0; i < userFundsList.length; i++) {
             if (block.timestamp < fundInfo[userFundsList[i]].expirationDate) {
                 activeCount++;
             }
         }
-        
+
         // Build active funds array
         address[] memory activeFunds = new address[](activeCount);
         uint256 currentIndex = 0;
-        
+
         for (uint i = 0; i < userFundsList.length; i++) {
             if (block.timestamp < fundInfo[userFundsList[i]].expirationDate) {
                 activeFunds[currentIndex] = userFundsList[i];
                 currentIndex++;
             }
         }
-        
+
         return activeFunds;
     }
 
@@ -221,25 +221,25 @@ contract MatchingFundTokenFactory {
     function getExpiredFunds(address user) external view returns (address[] memory) {
         address[] memory userFundsList = userFunds[user];
         uint256 expiredCount = 0;
-        
+
         // Count expired funds
         for (uint i = 0; i < userFundsList.length; i++) {
             if (block.timestamp >= fundInfo[userFundsList[i]].expirationDate) {
                 expiredCount++;
             }
         }
-        
+
         // Build expired funds array
         address[] memory expiredFunds = new address[](expiredCount);
         uint256 currentIndex = 0;
-        
+
         for (uint i = 0; i < userFundsList.length; i++) {
             if (block.timestamp >= fundInfo[userFundsList[i]].expirationDate) {
                 expiredFunds[currentIndex] = userFundsList[i];
                 currentIndex++;
             }
         }
-        
+
         return expiredFunds;
     }
 
@@ -248,34 +248,41 @@ contract MatchingFundTokenFactory {
      * @param startIndex Starting index
      * @param count Number of funds to retrieve
      */
-    function getFundsBatch(uint256 startIndex, uint256 count) external view returns (
-        address[] memory fundAddresses,
-        address[] memory creators,
-        string[] memory names,
-        string[] memory symbols,
-        uint256[] memory expirationDates,
-        bool[] memory hasExpired
-    ) {
+    function getFundsBatch(
+        uint256 startIndex,
+        uint256 count
+    )
+        external
+        view
+        returns (
+            address[] memory fundAddresses,
+            address[] memory creators,
+            string[] memory names,
+            string[] memory symbols,
+            uint256[] memory expirationDates,
+            bool[] memory hasExpired
+        )
+    {
         require(startIndex < allFunds.length, "Start index out of bounds");
-        
+
         uint256 endIndex = startIndex + count;
         if (endIndex > allFunds.length) {
             endIndex = allFunds.length;
         }
-        
+
         uint256 actualCount = endIndex - startIndex;
-        
+
         fundAddresses = new address[](actualCount);
         creators = new address[](actualCount);
         names = new string[](actualCount);
         symbols = new string[](actualCount);
         expirationDates = new uint256[](actualCount);
         hasExpired = new bool[](actualCount);
-        
+
         for (uint256 i = 0; i < actualCount; i++) {
             address fundAddr = allFunds[startIndex + i];
             FundInfo memory info = fundInfo[fundAddr];
-            
+
             fundAddresses[i] = fundAddr;
             creators[i] = info.creator;
             names[i] = info.name;
@@ -283,7 +290,7 @@ contract MatchingFundTokenFactory {
             expirationDates[i] = info.expirationDate;
             hasExpired[i] = block.timestamp >= info.expirationDate;
         }
-        
+
         return (fundAddresses, creators, names, symbols, expirationDates, hasExpired);
     }
 

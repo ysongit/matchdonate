@@ -76,26 +76,15 @@ contract BespokeFundTokenFactory {
         require(fundAmount <= IGivingFundToken(gfToken).balanceOf(msg.sender), "Not enough GF tokens");
 
         // Burn GF tokens from the creator
-        require(
-            IGivingFundToken(gfToken).burn(msg.sender, fundAmount),
-            "GF burn failed"
-        );
+        require(IGivingFundToken(gfToken).burn(msg.sender, fundAmount), "GF burn failed");
 
         // Deploy new bespoke fund token
-        BespokeFundToken newFund = new BespokeFundToken(
-            name,
-            symbol,
-            msg.sender,
-            gfToken
-        );
+        BespokeFundToken newFund = new BespokeFundToken(name, symbol, msg.sender, gfToken);
 
         address fundAddress = address(newFund);
 
         // Mint GF tokens to the new fund contract to back the bespoke tokens
-        require(
-            IGivingFundToken(gfToken).mintTo(fundAddress, fundAmount),
-            "GF mint failed"
-        );
+        require(IGivingFundToken(gfToken).mintTo(fundAddress, fundAmount), "GF mint failed");
 
         // Mint initial bespoke tokens to the creator
         newFund.initialMint(msg.sender, initialAmount);
@@ -104,7 +93,7 @@ contract BespokeFundTokenFactory {
         userFunds[msg.sender].push(fundAddress);
         allFunds.push(fundAddress);
         isFund[fundAddress] = true;
-        
+
         fundInfo[fundAddress] = FundInfo({
             fundAddress: fundAddress,
             creator: msg.sender,
@@ -129,16 +118,10 @@ contract BespokeFundTokenFactory {
         require(amount <= IGivingFundToken(gfToken).balanceOf(msg.sender), "Not enough GF tokens");
 
         // Burn GF tokens from contributor
-        require(
-            IGivingFundToken(gfToken).burn(msg.sender, amount),
-            "GF burn failed"
-        );
+        require(IGivingFundToken(gfToken).burn(msg.sender, amount), "GF burn failed");
 
         // Mint GF tokens to this contract to back the bespoke tokens
-        require(
-            IGivingFundToken(gfToken).mintTo(bespokeTokenAddress, amount),
-            "GF mint failed"
-        );
+        require(IGivingFundToken(gfToken).mintTo(bespokeTokenAddress, amount), "GF mint failed");
     }
 
     /**
@@ -184,13 +167,13 @@ contract BespokeFundTokenFactory {
      * @dev Get detailed info about a fund
      * @param fundAddress Address of the fund
      */
-    function getFundInfo(address fundAddress) external view returns (
-        address creator,
-        string memory name,
-        string memory symbol,
-        uint256 createdAt,
-        bool exists
-    ) {
+    function getFundInfo(
+        address fundAddress
+    )
+        external
+        view
+        returns (address creator, string memory name, string memory symbol, uint256 createdAt, bool exists)
+    {
         FundInfo memory info = fundInfo[fundAddress];
         return (info.creator, info.name, info.symbol, info.createdAt, info.exists);
     }
@@ -208,36 +191,43 @@ contract BespokeFundTokenFactory {
      * @param startIndex Starting index
      * @param count Number of funds to retrieve
      */
-    function getFundsBatch(uint256 startIndex, uint256 count) external view returns (
-        address[] memory fundAddresses,
-        address[] memory creators,
-        string[] memory names,
-        string[] memory symbols
-    ) {
+    function getFundsBatch(
+        uint256 startIndex,
+        uint256 count
+    )
+        external
+        view
+        returns (
+            address[] memory fundAddresses,
+            address[] memory creators,
+            string[] memory names,
+            string[] memory symbols
+        )
+    {
         require(startIndex < allFunds.length, "Start index out of bounds");
-        
+
         uint256 endIndex = startIndex + count;
         if (endIndex > allFunds.length) {
             endIndex = allFunds.length;
         }
-        
+
         uint256 actualCount = endIndex - startIndex;
-        
+
         fundAddresses = new address[](actualCount);
         creators = new address[](actualCount);
         names = new string[](actualCount);
         symbols = new string[](actualCount);
-        
+
         for (uint256 i = 0; i < actualCount; i++) {
             address fundAddr = allFunds[startIndex + i];
             FundInfo memory info = fundInfo[fundAddr];
-            
+
             fundAddresses[i] = fundAddr;
             creators[i] = info.creator;
             names[i] = info.name;
             symbols[i] = info.symbol;
         }
-        
+
         return (fundAddresses, creators, names, symbols);
     }
 

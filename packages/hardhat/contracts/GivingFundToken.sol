@@ -69,10 +69,7 @@ contract GivingFundToken {
         require(amount > 0, "Amount must be greater than 0");
 
         // Transfer USDC from user to owner
-        require(
-            IERC20(usdcToken).transferFrom(msg.sender, owner, amount),
-            "USDC transfer failed"
-        );
+        require(IERC20(usdcToken).transferFrom(msg.sender, owner, amount), "USDC transfer failed");
 
         // Mint GF tokens to user
         totalSupply += amount;
@@ -130,10 +127,7 @@ contract GivingFundToken {
         totalSupply -= amount;
 
         // Send USDC to recipient
-        require(
-            IERC20(usdcToken).transferFrom(owner, recipient, amount),
-            "USDC transfer failed"
-        );
+        require(IERC20(usdcToken).transferFrom(owner, recipient, amount), "USDC transfer failed");
 
         emit Burned(recipient, amount);
         emit Transfer(recipient, address(0), amount);
@@ -195,7 +189,7 @@ contract GivingFundToken {
     function authorizeMinter(address minter) external onlyOwner {
         require(minter != address(0), "Cannot authorize zero address");
         require(!authorizedMinters[minter], "Already authorized");
-        
+
         authorizedMinters[minter] = true;
         emit MinterAuthorized(minter);
     }
@@ -206,7 +200,7 @@ contract GivingFundToken {
      */
     function revokeMinter(address minter) external onlyOwner {
         require(authorizedMinters[minter], "Not authorized");
-        
+
         authorizedMinters[minter] = false;
         emit MinterRevoked(minter);
     }
@@ -255,7 +249,7 @@ contract GivingFundToken {
     function approveNonprofit(address nonprofit) external onlyOwner {
         require(nonprofit != address(0), "Cannot approve zero address");
         require(!approvedNonprofits[nonprofit], "Nonprofit already approved");
-        
+
         approvedNonprofits[nonprofit] = true;
         emit NonprofitApproved(nonprofit);
     }
@@ -266,7 +260,7 @@ contract GivingFundToken {
      */
     function revokeNonprofit(address nonprofit) external onlyOwner {
         require(approvedNonprofits[nonprofit], "Nonprofit not approved");
-        
+
         approvedNonprofits[nonprofit] = false;
         emit NonprofitRevoked(nonprofit);
     }
@@ -284,13 +278,13 @@ contract GivingFundToken {
      * @param account Address to check
      */
     function balanceInTokens(address account) external view returns (uint256) {
-        return balanceOf[account] / 10**decimals;
+        return balanceOf[account] / 10 ** decimals;
     }
 
     /**
      * @dev Get total supply in human-readable format
      */
     function totalSupplyInTokens() external view returns (uint256) {
-        return totalSupply / 10**decimals;
+        return totalSupply / 10 ** decimals;
     }
 }

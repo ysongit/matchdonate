@@ -25,7 +25,7 @@ contract MockUSDC {
      * @param initialSupply Initial supply in USDC units (not wei)
      */
     constructor(uint256 initialSupply) {
-        _mint(msg.sender, initialSupply * 10**decimals);
+        _mint(msg.sender, initialSupply * 10 ** decimals);
     }
 
     /**
@@ -108,6 +108,6 @@ contract MockUSDC {
      * @dev Helper function to get balance in human-readable format
      */
     function balanceInUSDC(address account) public view returns (uint256) {
-        return balanceOf[account] / 10**decimals;
+        return balanceOf[account] / 10 ** decimals;
     }
 }
