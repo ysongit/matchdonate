@@ -17,7 +17,7 @@ contract BespokeFundToken {
     address public immutable gfToken; // Giving Fund Token address
     address public immutable factory; // Factory contract address
     bool private initialized; // Prevent multiple initial mints
-    
+
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
 
@@ -36,12 +36,7 @@ contract BespokeFundToken {
         _;
     }
 
-    constructor(
-        string memory _name,
-        string memory _symbol,
-        address _owner,
-        address _gfToken
-    ) {
+    constructor(string memory _name, string memory _symbol, address _owner, address _gfToken) {
         name = _name;
         symbol = _symbol;
         owner = _owner;
@@ -57,7 +52,7 @@ contract BespokeFundToken {
     function initialMint(address to, uint256 amount) external onlyFactory {
         require(!initialized, "Already initialized");
         require(amount > 0, "Amount must be > 0");
-        
+
         initialized = true;
         totalSupply = amount;
         balanceOf[to] = amount;
@@ -74,16 +69,10 @@ contract BespokeFundToken {
         require(amount > 0, "Amount must be > 0");
 
         // Burn GF tokens from user
-        require(
-            IGivingFundToken(gfToken).burn(msg.sender, amount),
-            "GF burn failed"
-        );
+        require(IGivingFundToken(gfToken).burn(msg.sender, amount), "GF burn failed");
 
         // Mint GF tokens to this contract to back the bespoke tokens
-        require(
-            IGivingFundToken(gfToken).mintTo(address(this), amount),
-            "GF mint failed"
-        );
+        require(IGivingFundToken(gfToken).mintTo(address(this), amount), "GF mint failed");
 
         // Mint bespoke tokens to user
         totalSupply += amount;
@@ -111,16 +100,10 @@ contract BespokeFundToken {
         totalSupply -= amount;
 
         // Burn GF tokens from this contract
-        require(
-            IGivingFundToken(gfToken).burn(address(this), amount),
-            "GF burn failed"
-        );
+        require(IGivingFundToken(gfToken).burn(address(this), amount), "GF burn failed");
 
         // Mint GF tokens to redeemer
-        require(
-            IGivingFundToken(gfToken).mintTo(msg.sender, amount),
-            "GF mint failed"
-        );
+        require(IGivingFundToken(gfToken).mintTo(msg.sender, amount), "GF mint failed");
 
         emit Redeemed(msg.sender, amount);
         emit Transfer(msg.sender, address(0), amount);

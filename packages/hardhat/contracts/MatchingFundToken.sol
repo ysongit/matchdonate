@@ -19,7 +19,7 @@ contract MatchingFundToken {
     address public immutable gfToken; // Giving Fund Token address
     address public immutable factory; // Factory contract address
     uint256 public expirationDate; // Unix timestamp when fund expires
-    
+
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
 
@@ -59,7 +59,7 @@ contract MatchingFundToken {
         uint256 amount
     ) {
         require(_expirationDate > block.timestamp, "Expiration must be in future");
-        
+
         name = _name;
         symbol = _symbol;
         owner = _owner;
@@ -81,16 +81,10 @@ contract MatchingFundToken {
         require(amount > 0, "Amount must be > 0");
 
         // Burn GF tokens from user
-        require(
-            IGivingFundToken(gfToken).burn(msg.sender, amount),
-            "GF burn failed"
-        );
+        require(IGivingFundToken(gfToken).burn(msg.sender, amount), "GF burn failed");
 
         // Mint GF tokens to this contract to back the bespoke tokens
-        require(
-            IGivingFundToken(gfToken).mintTo(address(this), amount),
-            "GF mint failed"
-        );
+        require(IGivingFundToken(gfToken).mintTo(address(this), amount), "GF mint failed");
 
         // Mint matching tokens to user
         totalSupply += amount;
@@ -109,7 +103,7 @@ contract MatchingFundToken {
     function redeem(uint256 amount) external whenFactoryNotPaused beforeExpiration {
         require(amount > 0, "Amount must be > 0");
         require(
-           IGivingFundToken(gfToken).isApprovedNonprofit(msg.sender) || msg.sender == owner,
+            IGivingFundToken(gfToken).isApprovedNonprofit(msg.sender) || msg.sender == owner,
             "Only approved nonprofits or owner"
         );
         require(balanceOf[msg.sender] >= amount, "Insufficient balance");
@@ -119,16 +113,10 @@ contract MatchingFundToken {
         totalSupply -= amount;
 
         // Burn GF tokens from this contract
-        require(
-            IGivingFundToken(gfToken).burn(address(this), amount),
-            "GF burn failed"
-        );
+        require(IGivingFundToken(gfToken).burn(address(this), amount), "GF burn failed");
 
         // Mint GF tokens to redeemer
-        require(
-            IGivingFundToken(gfToken).mintTo(msg.sender, amount),
-            "GF mint failed"
-        );
+        require(IGivingFundToken(gfToken).mintTo(msg.sender, amount), "GF mint failed");
 
         emit Redeemed(msg.sender, amount);
         emit Transfer(msg.sender, address(0), amount);
@@ -142,17 +130,11 @@ contract MatchingFundToken {
         uint256 gfBalance = IGivingFundToken(gfToken).balanceOf(address(this));
         require(gfBalance > 0, "No funds to reclaim");
 
-         // Burn GF tokens from this contract
-        require(
-            IGivingFundToken(gfToken).burn(address(this), gfBalance),
-            "GF burn failed"
-        );
+        // Burn GF tokens from this contract
+        require(IGivingFundToken(gfToken).burn(address(this), gfBalance), "GF burn failed");
 
         // Mint GF tokens to redeemer
-        require(
-            IGivingFundToken(gfToken).mintTo(msg.sender, gfBalance),
-            "GF mint failed"
-        );
+        require(IGivingFundToken(gfToken).mintTo(msg.sender, gfBalance), "GF mint failed");
 
         emit FundsReclaimed(owner, gfBalance);
     }

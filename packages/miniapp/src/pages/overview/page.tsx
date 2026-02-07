@@ -37,7 +37,7 @@ interface ReceivedToken {
   type: string;
   from: string;
   matchingRatio: string;
-  tokenAmount: number;
+  tokenAmount: bigint;
 }
 
 interface FundDetails {
@@ -67,6 +67,8 @@ const Overview = () => {
   const [isLoadingBespokeDetails, setIsBespokeLoadingDetails] = useState(false);
   const [matchingFundsDetails, setMatchingFundsDetails] = useState<FundDetails[]>([]);
   const [isMatchingLoadingDetails, setIsMatchingLoadingDetails] = useState(false);
+  const [giftDetails, setGiftDetails] = useState<ReceivedToken[]>([]);
+  const [isGiftDetailsLoading, setIsGiftDetailsLoading] = useState(false);
 
   const { data: givingFundTokenAmount = 0n } = useReadContract({
     address: contracts.GivingFundToken.address,
@@ -92,6 +94,16 @@ const Overview = () => {
     address: contracts.MatchingFundTokenFactory.address,
     abi: contracts.MatchingFundTokenFactory.abi,
     functionName: "getUserFunds",
+    args: [address as `0x${string}`],
+    query: {
+      refetchInterval: 5000,
+    },
+  });
+
+  const { data: giftIds } = useReadContract({
+    address: contracts.GiftBox.address,
+    abi: contracts.GiftBox.abi,
+    functionName: "getClaimedGifts",
     args: [address as `0x${string}`],
     query: {
       refetchInterval: 5000,
@@ -235,22 +247,46 @@ const Overview = () => {
     fetchAllMatchingFundDetails();
   }, [matchingFundTokenAddresses, address]);
 
-  const receivedTokens: ReceivedToken[] = [
-    {
-      name: "LM Giving Fund",
-      type: "Giving Token",
-      from: "LM",
-      matchingRatio: "N/A",
-      tokenAmount: 1000,
-    },
-    {
-      name: "CK Matching Fund",
-      type: "Matching Token",
-      from: "Jen Li",
-      matchingRatio: "1 for 1",
-      tokenAmount: 1000,
-    },
-  ];
+  useEffect(() => {
+    if (!giftIds || giftIds.length === 0) {
+      setGiftDetails([]);
+      return;
+    }
+
+    const fetchAllGiftDetails = async () => {
+      setIsGiftDetailsLoading(true);
+      try {
+        const details: ReceivedToken[] = [];
+
+        for (const id of giftIds) {
+          const response = await readContract(config, {
+            abi: deployedContracts[chainId].GiftBox.abi,
+            address: deployedContracts[chainId].GiftBox.address as `0x${string}`,
+            functionName: "getGift",
+            args: [BigInt(id)],
+          });
+
+          console.log(response)
+
+          details.push({
+            name: response[7],
+            type: response[8] === 1 ? "Bespoke" : "Matching",
+            from: response[0],
+            matchingRatio: "n/a",
+            tokenAmount: response[2]
+          });
+        }
+
+        setGiftDetails(details);
+      } catch (error) {
+        console.error("Error fetching fund details:", error);
+      } finally {
+        setIsGiftDetailsLoading(false);
+      }
+    };
+
+    fetchAllGiftDetails();
+  }, [giftIds, address]);
 
   const bespokeColumns = [
     {
@@ -345,7 +381,7 @@ const Overview = () => {
       title: "Token Amount",
       dataIndex: "tokenAmount",
       key: "tokenAmount",
-      render: (val: number) => `$${val.toLocaleString()}`,
+      render: (val: bigint) => `$${formatUnits(val, 6)}`,
     },
   ];
 
@@ -376,6 +412,29 @@ const Overview = () => {
           address: USDC_ADDRESS,
           functionName: "mint",
           args: [address, parseUnits("100", 6)],
+        });
+      }
+    } catch (e) {
+      console.error("Error getting test USDC", e);
+    }
+  }
+
+   const handleClaimGift = async () => {
+    try {
+      if (client) {
+        // @ts-ignore
+        await writeContractviem(client, {
+          address: contracts.GiftBox.address,
+          abi: contracts.GiftBox.abi,
+          functionName: "claimGift",
+          args: [giftCode],
+        });
+      } else {
+        writeYourContractAsync({
+          address: contracts.GiftBox.address,
+          abi: contracts.GiftBox.abi,
+          functionName: "claimGift",
+          args: [giftCode],
         });
       }
     } catch (e) {
@@ -529,10 +588,11 @@ const Overview = () => {
           <div className="overflow-x-auto">
             <Table
               columns={receivedColumns}
-              dataSource={receivedTokens}
+              dataSource={giftDetails}
               pagination={false}
               rowKey="name"
               className="custom-table"
+              loading={isGiftDetailsLoading}
             />
           </div>
         </div>
@@ -552,6 +612,7 @@ const Overview = () => {
               type="primary"
               size="large"
               className="bg-gradient-to-r from-purple-500 to-purple-600 border-0 hover:from-purple-600 hover:to-purple-700 px-8"
+              onClick={() => handleClaimGift()}
             >
               Redeem
             </Button>
