@@ -2,22 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Select, Input, Checkbox } from 'antd';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
+interface FundDetails {
+  value: string;
+  label: string;
+  isMatching: boolean;
+}
+
 interface DonationModalProps {
   isOpen: boolean;
   onClose: () => void;
   nonprofitName: string;
+  bespokeFundsDetails: FundDetails;
+  matchingFundsDetails: FundDetails;
 }
 
-// Token options - some are "matching" tokens that trigger the Frame section
-const tokenOptions = [
-  { value: 'token1', label: 'USDC', isMatching: false },
-  { value: 'token2', label: 'ETH', isMatching: true },
-  { value: 'token3', label: 'DAI', isMatching: true },
-  { value: 'token4', label: 'USDT', isMatching: false },
-  { value: 'token5', label: 'BTC', isMatching: true },
-];
-
-export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose, nonprofitName }) => {
+export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose, nonprofitName, bespokeFundsDetails, matchingFundsDetails }) => {
   const [frequency, setFrequency] = useState<'one-time' | 'recurring' | null>(null);
   const [selectedToken, setSelectedToken] = useState<string | null>(null);
   const [amount, setAmount] = useState<string>('');
@@ -25,7 +24,8 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose, n
   const [frameAmount, setFrameAmount] = useState<string>('');
 
   // Check if selected token is a matching token
-  const isMatchingToken = tokenOptions.find((t) => t.value === selectedToken)?.isMatching || false;
+  // @ts-ignore
+  const isMatchingToken = matchingFundsDetails.find((t) => t.value === selectedToken)?.isMatching || false;
 
   // Calculate total donation amount
   const totalAmount = parseFloat(amount) || 0;
@@ -143,7 +143,7 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose, n
                 onChange={(value) => setSelectedToken(value)}
                 className="flex-1 h-11"
                 style={{ borderRadius: '24px' }}
-                options={tokenOptions.map((t) => ({ value: t.value, label: t.label }))}
+                options={[...bespokeFundsDetails.map((t) => ({ value: t.value, label: t.label })), ...matchingFundsDetails.map((t) => ({ value: t.value, label: t.label }))]}
               />
               <Input
                 placeholder="Amount"
@@ -167,7 +167,7 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose, n
                   onChange={(value) => setFrameToken(value)}
                   className="flex-1 h-11"
                   style={{ borderRadius: '24px' }}
-                  options={tokenOptions.map((t) => ({ value: t.value, label: t.label }))}
+                  options={bespokeFundsDetails.map((t) => ({ value: t.value, label: t.label }))}
                 />
                 <Input
                   placeholder="Amount"

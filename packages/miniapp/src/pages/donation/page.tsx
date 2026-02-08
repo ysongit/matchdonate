@@ -2,7 +2,17 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Input, Button, Checkbox } from 'antd';
 import { HeartIcon, EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
+import { useChainId, useConfig, useReadContract } from 'wagmi';
+import { readContract } from "@wagmi/core";
+import deployedContracts from "../../contracts/deployedContracts";
+import { useWalletAddress } from "../../hooks/useWalletAddress";
 import { DonationModal } from './_components';
+
+interface FundDetails {
+  value: string;
+  label: string;
+  isMatching: boolean;
+}
 
 interface Charity {
   id: string;
@@ -19,6 +29,12 @@ interface DropdownState {
 }
 
 const Donation: React.FC = () => {
+  const chainId = useChainId();
+  const config = useConfig();
+  const { address } = useWalletAddress();
+
+  const contracts = deployedContracts[chainId as keyof typeof deployedContracts];
+
   const [searchValue, setSearchValue] = useState<string>('');
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -26,6 +42,9 @@ const Donation: React.FC = () => {
   const [isDonationModalOpen, setIsDonationModalOpen] = useState<boolean>(false);
   const [selectedCharity, setSelectedCharity] = useState<Charity | null>(null);
   const dropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+
+  const [bespokeFundsDetails, setBespokeFundsDetails] = useState<FundDetails[]>([]);
+  const [matchingFundsDetails, setMatchingFundsDetails] = useState<FundDetails[]>([]);
 
   const [charities, setCharities] = useState<Charity[]>([
     {
@@ -72,6 +91,88 @@ const Donation: React.FC = () => {
 
   const countries = ['United States', 'United Kingdom'];
   const categories = ['Arts, Cultures, and humanities', 'United Kingdom', 'Education', 'Health', 'Environment'];
+
+  const { data: bespokeFundTokenAddresses } = useReadContract({
+    address: contracts.BespokeFundTokenFactory.address,
+    abi: contracts.BespokeFundTokenFactory.abi,
+    functionName: "getUserFunds",
+    args: [address as `0x${string}`],
+  });
+
+  const { data: matchingFundTokenAddresses } = useReadContract({
+    address: contracts.MatchingFundTokenFactory.address,
+    abi: contracts.MatchingFundTokenFactory.abi,
+    functionName: "getUserFunds",
+    args: [address as `0x${string}`],
+  });
+
+  useEffect(() => {
+    if (!bespokeFundTokenAddresses || bespokeFundTokenAddresses.length === 0) {
+      setBespokeFundsDetails([]);
+      return;
+    }
+
+    const fetchAllFundDetails = async () => {
+      try {
+        const details: FundDetails[] = [];
+
+        for (const fundAddress of bespokeFundTokenAddresses) {
+          const response = await readContract(config, {
+            abi: deployedContracts[chainId].BespokeFundTokenFactory.abi,
+            address: deployedContracts[chainId].BespokeFundTokenFactory.address as `0x${string}`,
+            functionName: "getFundInfo",
+            args: [fundAddress as `0x${string}`],
+          });
+
+          details.push({
+            value: fundAddress,
+            label: response[1],
+            isMatching: false
+          });
+        }
+
+        setBespokeFundsDetails(details);
+      } catch (error) {
+        console.error("Error fetching fund details:", error);
+      }
+    };
+
+    fetchAllFundDetails();
+  }, [bespokeFundTokenAddresses, address]);
+
+  useEffect(() => {
+    if (!matchingFundTokenAddresses || matchingFundTokenAddresses.length === 0) {
+      setBespokeFundsDetails([]);
+      return;
+    }
+
+    const fetchAllMatchingFundDetails = async () => {
+      try {
+        const details: FundDetails[] = [];
+
+        for (const fundAddress of matchingFundTokenAddresses) {
+          const response = await readContract(config, {
+            abi: deployedContracts[chainId].MatchingFundTokenFactory.abi,
+            address: deployedContracts[chainId].MatchingFundTokenFactory.address as `0x${string}`,
+            functionName: "getFundInfo",
+            args: [fundAddress as `0x${string}`],
+          });
+
+           details.push({
+            value: fundAddress,
+            label: response[1],
+            isMatching: true
+          });
+        }
+
+        setMatchingFundsDetails(details);
+      } catch (error) {
+        console.error("Error fetching fund details:", error);
+      }
+    };
+
+    fetchAllMatchingFundDetails();
+  }, [matchingFundTokenAddresses, address]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -345,6 +446,8 @@ const Donation: React.FC = () => {
         isOpen={isDonationModalOpen}
         onClose={() => setIsDonationModalOpen(false)}
         nonprofitName={selectedCharity?.name || 'Nonprofit XYZ'}
+        bespokeFundsDetails={bespokeFundsDetails}
+        matchingFundsDetails={matchingFundsDetails}
       />
 
       {/* Custom Styles */}
