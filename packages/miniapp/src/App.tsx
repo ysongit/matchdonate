@@ -9,6 +9,7 @@ import OverviewLayout from "./pages/overview/layout";
 import MyGivingFundLayout from "./pages/mygivingfund/layout";
 import GiftManagementLayout from "./pages/giftmanagement/layout";
 import SendGiftPageLayout from "./pages/sendgift/layout";
+import DonationLayout from "./pages/donation/layout";
 import Home from "./pages/Home";
 
 function App() {
@@ -20,6 +21,9 @@ function App() {
     <ConfigProvider theme={themeConfig}>
       <HashRouter>
         <Routes>
+          <Route
+            path="/donation"
+            element={<DonationLayout />} />
           <Route
             path="/gifting"
             element={<GiftManagementLayout />} />
