@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Input, Button, Checkbox } from 'antd';
 import { HeartIcon, EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
+import { DonationModal } from './_components';
 
 interface Charity {
   id: string;
@@ -22,6 +23,8 @@ const Donation: React.FC = () => {
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [openDropdown, setOpenDropdown] = useState<DropdownState>({});
+  const [isDonationModalOpen, setIsDonationModalOpen] = useState<boolean>(false);
+  const [selectedCharity, setSelectedCharity] = useState<Charity | null>(null);
   const dropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   const [charities, setCharities] = useState<Charity[]>([
@@ -111,6 +114,12 @@ const Donation: React.FC = () => {
     setSelectedCategories((prev) =>
       prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]
     );
+  };
+
+  const handleDonateClick = (charity: Charity) => {
+    setSelectedCharity(charity);
+    setIsDonationModalOpen(true);
+    setOpenDropdown({});
   };
 
   const filteredCharities = charities.filter((charity) => {
@@ -296,7 +305,10 @@ const Donation: React.FC = () => {
                               <button className="w-full px-4 py-2 text-left text-sm text-white bg-purple-500 hover:bg-purple-600 transition-colors">
                                 View
                               </button>
-                              <button className="w-full px-4 py-2 text-left text-sm text-purple-500 hover:bg-gray-50 transition-colors">
+                              <button
+                                onClick={() => handleDonateClick(charity)}
+                                className="w-full px-4 py-2 text-left text-sm text-purple-500 hover:bg-gray-50 transition-colors"
+                              >
                                 Donate
                               </button>
                             </div>
@@ -327,6 +339,13 @@ const Donation: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Donation Modal */}
+      <DonationModal
+        isOpen={isDonationModalOpen}
+        onClose={() => setIsDonationModalOpen(false)}
+        nonprofitName={selectedCharity?.name || 'Nonprofit XYZ'}
+      />
 
       {/* Custom Styles */}
       <style>{`
