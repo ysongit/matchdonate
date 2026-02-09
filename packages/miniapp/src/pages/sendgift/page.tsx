@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Input, Checkbox, Select, Button, Upload } from 'antd';
-import { PencilIcon, EyeIcon, PlusIcon, ArrowUpTrayIcon } from '@heroicons/react/24/solid';
+import { useState, useEffect, useRef } from 'react';
+import { Input, Checkbox, Select, Button } from 'antd';
+import { PencilIcon, EyeIcon, ArrowUpTrayIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import { useChainId, useConfig, useReadContract, useWriteContract } from 'wagmi';
 import { readContract, waitForTransactionReceipt } from "@wagmi/core";
 import deployedContracts from "../../contracts/deployedContracts";
@@ -8,6 +8,7 @@ import { useWalletAddress } from "../../hooks/useWalletAddress";
 import { parseUnits } from 'viem';
 import { useSmartWallets } from '@privy-io/react-auth/smart-wallets';
 import { generateRedeemCode } from '../../utils/generateRedeemCode';
+import { GiftBatchModal } from './_components';
 
 interface FundDetails {
   address: string;
@@ -94,6 +95,9 @@ const SendGift: React.FC = () => {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [currentPreviewIndex, setCurrentPreviewIndex] = useState<number>(0);
   const [showAllRecipients, setShowAllRecipients] = useState<boolean>(false);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState<boolean>(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState<FormData>({
     deliveryMethod: {
@@ -343,6 +347,7 @@ Thank you for being the kind of person you are. Here's to another year of you do
   };
 
   const handleCSVUpload = (file: File): boolean => {
+    setUploadedFileName(file.name);
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
@@ -366,10 +371,23 @@ Thank you for being the kind of person you are. Here's to another year of you do
 
       if (newRecipients.length > 0) {
         setRecipients(newRecipients);
+        setIsBatchModalOpen(false);
       }
     };
     reader.readAsText(file);
     return false; // Prevent default upload behavior
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleCSVUpload(file);
+    }
+  };
+
+  const openBatchModal = () => {
+    setUploadedFileName('');
+    setIsBatchModalOpen(true);
   };
 
   const handleSendingGift = async () => {
@@ -412,7 +430,6 @@ Thank you for being the kind of person you are. Here's to another year of you do
         if (recipient.giftAmount && parseFloat(recipient.giftAmount) > 0) {
           const recipientAmount = parseUnits(recipient.giftAmount, 6);
           const newRedeemCode = generateRedeemCode();
-          console.log(newRedeemCode);
 
           if (client) {
             // @ts-ignore
@@ -585,20 +602,15 @@ Thank you for being the kind of person you are. Here's to another year of you do
 
                 <h3 className="text-sm font-semibold text-gray-700 mb-3">Enter Recipients</h3>
 
-                {/* CSV Upload */}
-                <Upload
-                  accept=".csv"
-                  showUploadList={false}
-                  beforeUpload={handleCSVUpload}
+                {/* CSV Upload Button - Opens Modal */}
+                <Button
+                  className="mb-4 h-10 rounded-lg border-gray-300 text-gray-500 hover:border-purple-400"
+                  style={{ borderRadius: '8px' }}
+                  icon={<ArrowUpTrayIcon className="w-4 h-4" />}
+                  onClick={openBatchModal}
                 >
-                  <Button
-                    className="mb-4 h-10 rounded-lg border-gray-300 text-gray-500 hover:border-purple-400"
-                    style={{ borderRadius: '8px' }}
-                    icon={<ArrowUpTrayIcon className="w-4 h-4" />}
-                  >
-                    Upload CSV file for Multiple Recipients
-                  </Button>
-                </Upload>
+                  Upload CSV file for Multiple Recipients
+                </Button>
 
                 {/* Recipients Table */}
                 <div className="overflow-x-auto">
@@ -838,6 +850,15 @@ Thank you for being the kind of person you are. Here's to another year of you do
         </div>
       </div>
 
+      {/* Sending Gift Batch Modal */}
+      <GiftBatchModal
+        isOpen={isBatchModalOpen}
+        onClose={() => setIsBatchModalOpen(false)}
+        fileInputRef={fileInputRef}
+        handleFileInputChange={handleFileInputChange}
+        uploadedFileName={uploadedFileName}
+      />
+
       {/* Custom Styles */}
       <style>{`
         .ant-input {
@@ -904,6 +925,11 @@ Thank you for being the kind of person you are. Here's to another year of you do
 
         .ant-upload-wrapper {
           display: block;
+        }
+
+        .batch-upload-modal .ant-modal-content {
+          padding: 0 !important;
+          border-radius: 12px !important;
         }
       `}</style>
     </div>
