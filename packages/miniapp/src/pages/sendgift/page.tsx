@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Input, Checkbox, Select, Button } from 'antd';
-import { PencilIcon, EyeIcon, ArrowUpTrayIcon, XMarkIcon } from '@heroicons/react/24/solid';
+import { PencilIcon, EyeIcon, ArrowUpTrayIcon } from '@heroicons/react/24/solid';
 import { useChainId, useConfig, useReadContract, useWriteContract } from 'wagmi';
 import { readContract, waitForTransactionReceipt } from "@wagmi/core";
 import deployedContracts from "../../contracts/deployedContracts";
