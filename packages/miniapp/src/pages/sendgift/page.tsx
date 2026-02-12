@@ -9,6 +9,7 @@ import { parseUnits } from 'viem';
 import { useSmartWallets } from '@privy-io/react-auth/smart-wallets';
 import { generateRedeemCode } from '../../utils/generateRedeemCode';
 import { GiftBatchModal } from './_components';
+import { getTokenBalanceFormatted } from '../../utils/getTokenBalance';
 
 interface FundDetails {
   address: string;
@@ -97,6 +98,7 @@ const SendGift: React.FC = () => {
   const [showAllRecipients, setShowAllRecipients] = useState<boolean>(false);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState<boolean>(false);
   const [uploadedFileName, setUploadedFileName] = useState<string>('');
+  const [selectTokenBalance, setSelectTokenBalance] = useState<number>(-1);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState<FormData>({
@@ -305,12 +307,14 @@ Thank you for being the kind of person you are. Here's to another year of you do
     }));
   };
 
-  const handleSelectTokenChange = (value: string, option: any): void => {
+  const handleSelectTokenChange = async (value: string, option: any): void => {
     setFormData((prev) => ({
       ...prev,
       fundToken: value,
       tokenType: option?.label?.tokenType || 0,
     }));
+    const amount = await getTokenBalanceFormatted(config, value, address, 6);
+    setSelectTokenBalance(amount);
   };
 
   const handleDeliveryMethodChange = (method: 'email' | 'text'): void => {
@@ -415,7 +419,7 @@ Thank you for being the kind of person you are. Here's to another year of you do
             abi: [approve_ABI],
             address: formData.fundToken as `0x${string}`,
             functionName: "approve",
-            args: [contracts.GiftBox.address as `0x${string}`, BigInt(parseAmount)],
+            args: [deployedContracts[chainId].GiftBox.address as `0x${string}`, BigInt(parseAmount)],
           });
 
           const approvalReceipt = await waitForTransactionReceipt(config, {
@@ -581,24 +585,29 @@ Thank you for being the kind of person you are. Here's to another year of you do
               {/* Select Giving Fund & Recipients Section */}
               <div className="border border-purple-200 rounded-lg p-4">
                 <h3 className="text-sm font-semibold text-gray-700 mb-3">Select Giving Fund</h3>
-                <Select
-                  placeholder="Fund Token"
-                  value={formData.fundToken || undefined}
-                  onChange={handleSelectTokenChange}
-                  className="w-full md:w-40 h-11 mb-4"
-                  style={{ borderRadius: '8px' }}
-                >
-                  {bespokeFundsDetails?.map((bespokeFund) => (
-                    <Select.Option key={bespokeFund.address} label={bespokeFund} value={bespokeFund.address}>
-                      {bespokeFund.name}
-                    </Select.Option>
-                  ))}
-                  {matchingFundsDetails?.map((matchingFund) => (
-                    <Select.Option key={matchingFund.address} label={matchingFund} value={matchingFund.address}>
-                      {matchingFund.name}
-                    </Select.Option>
-                  ))}
-                </Select>
+
+                <div className="flex items-center mb-2">
+                  <Select
+                    placeholder="Fund Token"
+                    value={formData.fundToken || undefined}
+                    onChange={handleSelectTokenChange}
+                    className="w-full md:w-40 h-11 mb-4"
+                    style={{ borderRadius: '8px' }}
+                  >
+                    {bespokeFundsDetails?.map((bespokeFund) => (
+                      <Select.Option key={bespokeFund.address} label={bespokeFund} value={bespokeFund.address}>
+                        {bespokeFund.name}
+                      </Select.Option>
+                    ))}
+                    {matchingFundsDetails?.map((matchingFund) => (
+                      <Select.Option key={matchingFund.address} label={matchingFund} value={matchingFund.address}>
+                        {matchingFund.name}
+                      </Select.Option>
+                    ))}
+                  </Select>
+
+                  {selectTokenBalance !== -1 && <p className="ml-3">Balance: {selectTokenBalance}</p>}
+                </div>
 
                 <h3 className="text-sm font-semibold text-gray-700 mb-3">Enter Recipients</h3>
 

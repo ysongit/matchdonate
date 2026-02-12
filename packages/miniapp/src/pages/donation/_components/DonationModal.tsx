@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useConfig } from 'wagmi';
 import { Modal, Select, Input, Checkbox } from 'antd';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import { getTokenBalanceFormatted } from '../../../utils/getTokenBalance';
+import { useWalletAddress } from '../../../hooks/useWalletAddress';
 
 interface FundDetails {
   value: string;
@@ -17,11 +20,16 @@ interface DonationModalProps {
 }
 
 export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose, nonprofitName, bespokeFundsDetails, matchingFundsDetails }) => {
+  const config = useConfig();
+  const { address } = useWalletAddress();
+
   const [frequency, setFrequency] = useState<'one-time' | 'recurring' | null>(null);
   const [selectedToken, setSelectedToken] = useState<string | null>(null);
   const [amount, setAmount] = useState<string>('');
   const [frameToken, setFrameToken] = useState<string | null>(null);
   const [frameAmount, setFrameAmount] = useState<string>('');
+  const [selectTokenBalance, setSelectTokenBalance] = useState<number>(-1);
+  const [selectFrameTokenBalance, setSelectFrameTokenBalance] = useState<number>(-1);
 
   // Check if selected token is a matching token
   // @ts-ignore
@@ -43,6 +51,18 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose, n
 
   const handleFrequencyChange = (type: 'one-time' | 'recurring') => {
     setFrequency(type);
+  };
+
+  const handleSelectTokenChange = async (value: string): void => {
+    setSelectedToken(value)
+    const amount = await getTokenBalanceFormatted(config, value, address, 6);
+    setSelectTokenBalance(amount);
+  };
+
+  const handleSelectFrameTokenChange = async (value: string): void => {
+    setFrameToken(value)
+    const amount = await getTokenBalanceFormatted(config, value, address, 6);
+    setSelectFrameTokenBalance(amount);
   };
 
   const handleDonate = () => {
@@ -140,19 +160,22 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose, n
               <Select
                 placeholder="Fund Token"
                 value={selectedToken}
-                onChange={(value) => setSelectedToken(value)}
+                onChange={(value) => handleSelectTokenChange(value)}
                 className="flex-1 h-11"
                 style={{ borderRadius: '24px' }}
                 options={[...bespokeFundsDetails.map((t) => ({ value: t.value, label: t.label })), ...matchingFundsDetails.map((t) => ({ value: t.value, label: t.label }))]}
               />
-              <Input
-                placeholder="Amount"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-28 h-11 rounded-full border-gray-200"
-                style={{ borderRadius: '24px' }}
-                type="number"
-              />
+              <div className="flex flex-col">
+                <Input
+                  placeholder="Amount"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="w-28 h-11 rounded-full border-gray-200"
+                  style={{ borderRadius: '24px' }}
+                  type="number"
+                />
+                {selectTokenBalance !== -1 && <p className="ml-3">Balance: {selectTokenBalance}</p>}
+              </div>
             </div>
           </div>
 
@@ -164,19 +187,22 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose, n
                 <Select
                   placeholder="Fund Token"
                   value={frameToken}
-                  onChange={(value) => setFrameToken(value)}
+                  onChange={(value) => handleSelectFrameTokenChange(value)}
                   className="flex-1 h-11"
                   style={{ borderRadius: '24px' }}
                   options={bespokeFundsDetails.map((t) => ({ value: t.value, label: t.label }))}
                 />
-                <Input
-                  placeholder="Amount"
-                  value={frameAmount}
-                  onChange={(e) => setFrameAmount(e.target.value)}
-                  className="w-28 h-11 rounded-full border-gray-200"
-                  style={{ borderRadius: '24px' }}
-                  type="number"
-                />
+                <div className="flex flex-col">
+                  <Input
+                    placeholder="Amount"
+                    value={frameAmount}
+                    onChange={(e) => setFrameAmount(e.target.value)}
+                    className="w-28 h-11 rounded-full border-gray-200"
+                    style={{ borderRadius: '24px' }}
+                    type="number"
+                  />
+                  {selectFrameTokenBalance !== -1 && <p className="ml-3">Balance: {selectFrameTokenBalance}</p>}
+                </div>
               </div>
             </div>
           )}
