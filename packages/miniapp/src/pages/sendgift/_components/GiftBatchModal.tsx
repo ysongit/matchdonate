@@ -1,18 +1,25 @@
+import React, { useRef } from 'react';
 import { Modal, Button } from 'antd';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon } from '@heroicons/react/24/solid';
 
-interface GiftBatchProps {
+interface GiftBatchModalProps {
   isOpen: boolean;
   onClose: () => void;
-  fileInputRef: any;
-  handleFileInputChange: any
-  uploadedFileName: string
+  onFileUpload: (file: File) => void;
+  uploadedFileName: string;
 }
 
-export const GiftBatchModal: React.FC<GiftBatchProps> = ({ isOpen, onClose, fileInputRef, handleFileInputChange, uploadedFileName }) => {
-  // CSV Template content
-  const csvTemplateContent = `First Name,Last Name,Email,Phone Number,Gift Amount
+// CSV Template content
+const csvTemplateContent = `First Name,Last Name,Email,Phone Number,Gift Amount
 `;
+
+export const GiftBatchModal: React.FC<GiftBatchModalProps> = ({
+  isOpen,
+  onClose,
+  onFileUpload,
+  uploadedFileName,
+}) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const downloadCSVTemplate = () => {
     const blob = new Blob([csvTemplateContent], { type: 'text/csv;charset=utf-8;' });
@@ -24,6 +31,13 @@ export const GiftBatchModal: React.FC<GiftBatchProps> = ({ isOpen, onClose, file
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      onFileUpload(file);
+    }
   };
 
   return (
