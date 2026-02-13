@@ -121,6 +121,70 @@ contract GiftBox {
     }
 
     /**
+    * @dev Create multiple gifts with redeem codes in a single transaction
+    * @param tokenAddress Address of the Bespoke or Matching Fund Token
+    * @param amounts Array of token amounts for each gift
+    * @param redeemCodes Array of secret codes for each gift
+    * @param tokenType 1 for Bespoke Fund Token, 2 for Matching Fund Token
+    */
+    function createGiftBatch(
+        address tokenAddress,
+        uint256[] memory amounts,
+        string[] memory redeemCodes,
+        uint8 tokenType
+    ) external whenNotPaused returns (uint256[] memory) {
+        uint256 count = amounts.length;
+        require(count > 0, "Empty arrays");
+        require(count == redeemCodes.length, "Array length mismatch");
+        require(tokenAddress != address(0), "Invalid token address");
+
+        // Calculate total amount and transfer once
+        uint256 totalAmount = 0;
+        for (uint256 i = 0; i < count; i++) {
+            require(amounts[i] > 0, "Amount must be > 0");
+            totalAmount += amounts[i];
+        }
+
+        require(IERC20(tokenAddress).transferFrom(msg.sender, address(this), totalAmount), "Token transfer failed");
+
+        IERC20 token = IERC20(tokenAddress);
+        string memory name = token.name();
+
+        uint256[] memory giftIds = new uint256[](count);
+
+        for (uint256 i = 0; i < count; i++) {
+            require(bytes(redeemCodes[i]).length > 0, "Redeem code required");
+
+            bytes32 codeHash = keccak256(abi.encodePacked(redeemCodes[i]));
+            require(codeToGiftId[codeHash] == 0, "Code already used");
+
+            uint256 giftId = nextGiftId++;
+
+            gifts[giftId] = Gift({
+                giftId: giftId,
+                sender: msg.sender,
+                tokenAddress: tokenAddress,
+                amount: amounts[i],
+                redeemCodeHash: codeHash,
+                claimed: false,
+                claimedBy: address(0),
+                createdAt: block.timestamp,
+                claimedAt: 0,
+                tokenName: name,
+                tokenType: tokenType
+            });
+
+            codeToGiftId[codeHash] = giftId;
+            senderGifts[msg.sender].push(giftId);
+            giftIds[i] = giftId;
+
+            emit GiftCreated(giftId, msg.sender, tokenAddress, amounts[i], tokenType, block.timestamp);
+        }
+
+        return giftIds;
+    }
+
+    /**
      * @dev Claim a gift using the redeem code
      * @param redeemCode The secret code provided by the sender
      */

@@ -278,36 +278,60 @@ Thank you for being the kind of person you are. Here's to another year of you do
   };
 
   const handleSendingGift = async () => {
-    try {
-      const totalAmount = calculateTotalGiftAmount();
-      const approvedAmount = await getApproveAmount(formData.fundToken);
-      const parseAmount = parseUnits(totalAmount.toString(), 6);
-      if (approvedAmount < parseAmount) {
-        const approvalHash = await writeContractAsync({
-          abi: [approve_ABI],
-          address: formData.fundToken as `0x${string}`,
-          functionName: "approve",
-          args: [contracts.GiftBox.address as `0x${string}`, BigInt(parseAmount)],
-        });
-        await waitForTransactionReceipt(config, { hash: approvalHash });
-      }
-      for (const recipient of recipients) {
-        if (recipient.giftAmount && parseFloat(recipient.giftAmount) > 0) {
-          const recipientAmount = parseUnits(recipient.giftAmount, 6);
-          const newRedeemCode = generateRedeemCode();
-          await writeContractAsync({
-            address: deployedContracts[chainId].GiftBox.address,
-            abi: deployedContracts[chainId].GiftBox.abi,
-            functionName: "createGift",
-            args: [formData.fundToken, recipientAmount, newRedeemCode, formData.tokenType],
-          });
-        }
-      }
-      setRedeemCode(generateRedeemCode());
-    } catch (e) {
-      console.error("Error sending gift:", e);
+  try {
+    const totalAmount = calculateTotalGiftAmount();
+    const approvedAmount = await getApproveAmount(formData.fundToken);
+    const parseAmount = parseUnits(totalAmount.toString(), 6);
+
+    if (approvedAmount < parseAmount) {
+      const approveArgs = {
+        abi: [approve_ABI],
+        address: formData.fundToken as `0x${string}`,
+        functionName: "approve",
+        args: [deployedContracts[chainId].GiftBox.address as `0x${string}`, BigInt(parseAmount)],
+      };
+
+      const approvalHash = client
+        // @ts-ignore
+        ? await writeContractviem(client, approveArgs)
+        : await writeContractAsync(approveArgs);
+
+      const approvalReceipt = await waitForTransactionReceipt(config, { hash: approvalHash });
+      console.log("Approval confirmed", approvalReceipt);
     }
-  };
+
+    // Build arrays for batch call
+    const amounts: bigint[] = [];
+    const redeemCodes: string[] = [];
+
+    for (const recipient of recipients) {
+      if (recipient.giftAmount && parseFloat(recipient.giftAmount) > 0) {
+        amounts.push(parseUnits(recipient.giftAmount, 6));
+        redeemCodes.push(generateRedeemCode());
+      }
+    }
+
+    if (amounts.length > 0) {
+      const batchArgs = {
+        address: deployedContracts[chainId].GiftBox.address,
+        abi: deployedContracts[chainId].GiftBox.abi,
+        functionName: "createGiftBatch",
+        args: [formData.fundToken, amounts, redeemCodes, formData.tokenType],
+      };
+
+      if (client) {
+        // @ts-ignore
+        await writeContractviem(client, batchArgs);
+      } else {
+        await writeContractAsync(batchArgs);
+      }
+    }
+
+    setRedeemCode(generateRedeemCode());
+  } catch (e) {
+    console.error("Error sending gift:", e);
+  }
+};
 
   const handlePreviousPreview = () => setCurrentPreviewIndex((prev) => Math.max(0, prev - 1));
   const handleNextPreview = () => {
